@@ -1,16 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Settings, Download, Trash2, User, Shield, Bell, Palette, ChevronRight, AlertTriangle } from 'lucide-react'
+import { Settings, Download, Trash2, User, Shield, Bell, AlertTriangle, Watch } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { profileStore, vitalsStore, workoutsStore, nutritionStore, bodyStore, financeStore, goalsStore, habitsStore, tasksStore, journalStore } from '@/lib/store'
 import type { UserProfile } from '@/lib/types'
+import { isNative, requestNotificationPermission, scheduleDailyVitalsReminder, cancelDailyReminder } from '@/lib/health'
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [name, setName] = useState('')
   const [saved, setSaved] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [reminderOn, setReminderOn] = useState(false)
   const [stats, setStats] = useState({ vitals: 0, workouts: 0, transactions: 0, habits: 0, goals: 0, journal: 0 })
 
   useEffect(() => {
@@ -136,30 +138,45 @@ export default function SettingsPage() {
         </Button>
       </Section>
 
-      {/* Notifications placeholder */}
+      {/* Notifications */}
       <Section title="Notifications" icon={Bell}>
-        <div className="space-y-3">
-          {[
-            { label: 'Daily vitals reminder', time: '8:00 AM', enabled: true },
-            { label: 'Habit check-in', time: '9:00 PM', enabled: true },
-            { label: 'Weekly review', time: 'Sunday 10:00 AM', enabled: false },
-          ].map(item => (
-            <div key={item.label} className="flex items-center justify-between py-2">
-              <div>
-                <div className="text-sm font-medium">{item.label}</div>
-                <div className="text-xs text-muted-foreground">{item.time}</div>
-              </div>
-              <div className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${item.enabled ? 'bg-primary' : 'bg-secondary'}`}>
-                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${item.enabled ? 'left-5' : 'left-0.5'}`} />
-              </div>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium">Daily vitals reminder</div>
+              <div className="text-xs text-muted-foreground">8:00 AM — log your morning data</div>
             </div>
-          ))}
-          <p className="text-xs text-muted-foreground">Browser notifications — grant permission when prompted.</p>
+            <button
+              onClick={async () => {
+                if (reminderOn) {
+                  await cancelDailyReminder()
+                  setReminderOn(false)
+                } else {
+                  const granted = await requestNotificationPermission()
+                  if (granted) { await scheduleDailyVitalsReminder(); setReminderOn(true) }
+                  else alert('Enable notifications in your device settings first.')
+                }
+              }}
+              className={`w-10 h-5 rounded-full relative transition-colors ${reminderOn ? 'bg-primary' : 'bg-secondary'}`}>
+              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${reminderOn ? 'left-5' : 'left-0.5'}`} />
+            </button>
+          </div>
+
+          {isNative() && (
+            <div className="flex items-center gap-2 text-xs text-green-400">
+              <Watch className="w-3.5 h-3.5" />
+              Apple Health auto-import is active
+            </div>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            {isNative() ? 'Native push notifications via the FORGE app.' : 'Grant permission when prompted. Works on Chrome and Safari.'}
+          </p>
         </div>
       </Section>
 
-      {/* Appearance */}
-      <Section title="Appearance" icon={Palette}>
+      {/* Appearance — removed Palette import since unused */}
+      <Section title="Appearance" icon={Settings}>
         <div className="flex items-center justify-between py-2">
           <div>
             <div className="text-sm font-medium">Theme</div>

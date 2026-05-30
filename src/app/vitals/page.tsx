@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { Moon, Heart, Zap, Smile, Save } from 'lucide-react'
+import { Moon, Heart, Zap, Smile, Save, Watch } from 'lucide-react'
+import { fetchTodayHealthData, requestHealthPermissions, isNative, scheduleDailyVitalsReminder, requestNotificationPermission } from '@/lib/health'
 import { Button } from '@/components/ui/button'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { vitalsStore, generateId, today, calculateReadiness } from '@/lib/store'
@@ -57,13 +58,39 @@ export default function VitalsPage() {
     notes: '',
   })
   const [saved, setSaved] = useState(false)
+  const [healthImported, setHealthImported] = useState(false)
+  const [importingHealth, setImportingHealth] = useState(false)
 
   useEffect(() => {
     const all = vitalsStore.getRecent(30)
     setEntries(all)
     const todayEntry = all.find(e => e.date === todayStr)
-    if (todayEntry) setForm(todayEntry)
+    if (todayEntry) { setForm(todayEntry); return }
+    // Auto-import from Apple Health / Google Fit on native
+    if (isNative()) importFromHealth(true)
   }, [todayStr])
+
+  async function importFromHealth(silent = false) {
+    setImportingHealth(true)
+    try {
+      const granted = await requestHealthPermissions()
+      if (!granted) { if (!silent) alert('Health access denied. Enable it in Settings → Privacy → Health.'); return }
+      const data = await fetchTodayHealthData()
+      if (data.source === 'none') return
+      setForm(f => ({
+        ...f,
+        ...(data.sleepHours !== null ? { sleepHours: data.sleepHours } : {}),
+        ...(data.hrv !== null ? { hrv: data.hrv } : {}),
+        ...(data.rhr !== null ? { rhr: data.rhr } : {}),
+      }))
+      setHealthImported(true)
+      // Set up daily reminder on first health import
+      const notifGranted = await requestNotificationPermission()
+      if (notifGranted) scheduleDailyVitalsReminder()
+    } finally {
+      setImportingHealth(false)
+    }
+  }
 
   function save() {
     vitalsStore.save({ ...form, id: form.id || generateId() })
@@ -93,11 +120,28 @@ export default function VitalsPage() {
         {/* Log form */}
         <div className="forge-card space-y-5">
           <div className="flex items-center justify-between">
-            <span className="forge-label">Log Today — {format(new Date(), 'MMM d')}</span>
+            <span className="forge-label flex items-center gap-2">
+              Log Today — {format(new Date(), 'MMM d')}
+              {healthImported && (
+                <span className="text-[10px] text-green-400 font-medium flex items-center gap-1">
+                  <Watch className="w-3 h-3" />auto-filled
+                </span>
+              )}
+            </span>
+            <div className="flex items-center gap-2">
+              {isNative() && (
+                <Button onClick={() => importFromHealth(false)} size="sm" variant="ghost"
+                  disabled={importingHealth}
+                  className="gap-1.5 text-xs text-muted-foreground hover:text-primary h-7">
+                  <Watch className="w-3 h-3" />
+                  {importingHealth ? 'Importing…' : 'Apple Health'}
+                </Button>
+              )}
             <Button onClick={save} size="sm" className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
               <Save className="w-3.5 h-3.5" />
               {saved ? 'Saved!' : 'Save'}
             </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

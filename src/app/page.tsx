@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import {
-  vitalsStore, habitsStore, tasksStore, financeStore, workoutsStore,
+  vitalsStore, habitsStore, tasksStore, financeStore, workoutsStore, journalStore,
   calculateLifeScores, generateInsights, getDailyCall, today, getHabitStreak,
   checkAndUnlockAchievements
 } from '@/lib/store'
@@ -42,24 +42,29 @@ function LifeScoreRing({ score, call }: { score: number; call: 'GREEN' | 'YELLOW
 }
 
 /* ── Domain score pill ─────────────────────────────────── */
-function DomainPill({ label, score, trend, icon: Icon, color }: {
-  label: string; score: number; trend: 'up' | 'down' | 'flat'; icon: React.ElementType; color: string
+function DomainPill({ label, score, trend, icon: Icon, color, noData, href }: {
+  label: string; score: number; trend: 'up' | 'down' | 'flat'
+  icon: React.ElementType; color: string; noData?: boolean; href: string
 }) {
   const TrendIcon = trend === 'up' ? ArrowUp : trend === 'down' ? ArrowDown : Minus
+  const displayColor = noData ? '#52525b' : color
   return (
-    <div className="forge-card flex flex-col gap-1.5 py-3">
+    <Link href={href} className="forge-card flex flex-col gap-1.5 py-3 hover:border-primary/30 transition-colors">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <Icon className="w-3.5 h-3.5" style={{ color }} />
+          <Icon className="w-3.5 h-3.5" style={{ color: displayColor }} />
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
         </div>
-        <TrendIcon className={`w-3 h-3 ${trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-muted-foreground'}`} />
+        {noData
+          ? <span className="text-[9px] text-muted-foreground uppercase tracking-wider">Start →</span>
+          : <TrendIcon className={`w-3 h-3 ${trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-muted-foreground'}`} />
+        }
       </div>
-      <div className="font-bold text-xl" style={{ color }}>{score}</div>
+      <div className="font-bold text-xl" style={{ color: displayColor }}>{noData ? '—' : score}</div>
       <div className="h-1 bg-secondary rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${score}%`, backgroundColor: color }} />
+        <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${noData ? 0 : score}%`, backgroundColor: displayColor }} />
       </div>
-    </div>
+    </Link>
   )
 }
 
@@ -161,6 +166,25 @@ export default function CommandCenter() {
   const habitPct = useMemo(() => habits.length ? Math.round((todayHabits.length / habits.length) * 100) : 0, [habits, todayHabits])
   const alertCount = useMemo(() => insights.filter(i => i.severity === 'alert' || i.severity === 'warning').length, [insights])
 
+  // No-data detection for domain pills
+  const bodyHasData = useMemo(() => workoutsStore.getAll().length > 0, [])
+  const wealthHasData = useMemo(() => financeStore.getAll().length > 0, [])
+  const mindHasData = useMemo(() => habitsStore.getAll().length > 0 || journalStore.getAll().length > 0, [])
+
+  // Login streak: count consecutive days with any entry (vitals, workout, or habit)
+  const loginStreak = useMemo(() => {
+    const allVitalDates = new Set(vitalsStore.getAll().map(v => v.date))
+    let streak = 0
+    const d = new Date()
+    while (true) {
+      const dateStr = d.toISOString().split('T')[0]
+      if (!allVitalDates.has(dateStr)) break
+      streak++
+      d.setDate(d.getDate() - 1)
+    }
+    return streak
+  }, [])
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
@@ -170,13 +194,18 @@ export default function CommandCenter() {
             {format(new Date(), "EEEE, MMMM d · yyyy")}
           </p>
           <h1 className="text-3xl font-bold">Command Center</h1>
+          {loginStreak > 1 && (
+            <p className="text-sm text-primary font-medium mt-1">{loginStreak} day streak 🔥</p>
+          )}
         </div>
-        {alertCount > 0 && (
-          <Link href="/insights" className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-colors">
-            <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-            {alertCount} alert{alertCount > 1 ? 's' : ''}
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {alertCount > 0 && (
+            <Link href="/insights" className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-colors">
+              <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+              {alertCount} alert{alertCount > 1 ? 's' : ''}
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Hero: Life Score + AI Brief */}
@@ -237,10 +266,10 @@ export default function CommandCenter() {
 
       {/* Domain scores */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <DomainPill label="Health"  score={scores.health.score}  trend={scores.health.trend}  icon={Heart}      color="#22c55e" />
-        <DomainPill label="Body"    score={scores.body.score}    trend={scores.body.trend}    icon={Dumbbell}   color="#f97316" />
-        <DomainPill label="Wealth"  score={scores.wealth.score}  trend={scores.wealth.trend}  icon={TrendingUp} color="#f59e0b" />
-        <DomainPill label="Mind"    score={scores.mind.score}    trend={scores.mind.trend}    icon={Brain}      color="#a78bfa" />
+        <DomainPill label="Health"  score={scores.health.score}  trend={scores.health.trend}  icon={Heart}      color="#22c55e" noData={!vital}          href="/vitals" />
+        <DomainPill label="Body"    score={scores.body.score}    trend={scores.body.trend}    icon={Dumbbell}   color="#f97316" noData={!bodyHasData}    href="/body" />
+        <DomainPill label="Wealth"  score={scores.wealth.score}  trend={scores.wealth.trend}  icon={TrendingUp} color="#f59e0b" noData={!wealthHasData}  href="/wealth" />
+        <DomainPill label="Mind"    score={scores.mind.score}    trend={scores.mind.trend}    icon={Brain}      color="#a78bfa" noData={!mindHasData}    href="/mind" />
       </div>
 
       {/* Daily Focus */}
