@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Settings, Download, Trash2, User, Shield, Bell, AlertTriangle, Watch, Copy, Check, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { profileStore, vitalsStore, workoutsStore, nutritionStore, bodyStore, financeStore, goalsStore, habitsStore, tasksStore, journalStore, getReferralCode, isProUser } from '@/lib/store'
+import { profileStore, vitalsStore, workoutsStore, nutritionStore, bodyStore, financeStore, goalsStore, habitsStore, tasksStore, journalStore, getReferralCode, isProUser, getProCustomerId } from '@/lib/store'
 import type { UserProfile } from '@/lib/types'
 import { isNative, requestNotificationPermission, scheduleDailyVitalsReminder, cancelDailyReminder } from '@/lib/health'
 import Link from 'next/link'
@@ -17,6 +17,8 @@ export default function SettingsPage() {
   const [referralCode, setReferralCode] = useState('')
   const [copied, setCopied] = useState(false)
   const [pro, setPro] = useState(false)
+  const [proCustomerId, setProCustomerId] = useState<string | null>(null)
+  const [managingSubscription, setManagingSubscription] = useState(false)
   const [stats, setStats] = useState({ vitals: 0, workouts: 0, transactions: 0, habits: 0, goals: 0, journal: 0 })
 
   useEffect(() => {
@@ -32,7 +34,9 @@ export default function SettingsPage() {
       journal:      journalStore.getAll().length,
     })
     setReferralCode(getReferralCode())
-    setPro(isProUser())
+    const proStatus = isProUser()
+    setPro(proStatus)
+    if (proStatus) setProCustomerId(getProCustomerId())
   }, [])
 
   function saveProfile() {
@@ -200,6 +204,29 @@ export default function SettingsPage() {
               <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
               <span className="text-sm font-semibold text-primary">Pro — Active</span>
             </div>
+            {proCustomerId && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2"
+                disabled={managingSubscription}
+                onClick={async () => {
+                  setManagingSubscription(true)
+                  try {
+                    const res = await fetch('/api/portal', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ customerId: proCustomerId }),
+                    })
+                    const data = await res.json()
+                    if (data.url) window.location.href = data.url
+                    else alert('Could not open billing portal. Try again.')
+                  } catch { alert('Network error. Try again.') }
+                  finally { setManagingSubscription(false) }
+                }}>
+                {managingSubscription ? 'Opening…' : 'Manage Subscription'}
+              </Button>
+            )}
             <div className="space-y-1">
               <label className="forge-label">Your referral code</label>
               <div className="flex gap-2">

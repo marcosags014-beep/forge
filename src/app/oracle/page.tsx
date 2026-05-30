@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Send, Sparkles, Trash2, User, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { chatStore, generateId, getAllDataForAI, profileStore, isProUser, getOracleUsage, incrementOracleUsage, FREE_ORACLE_DAILY } from '@/lib/store'
+import { chatStore, generateId, getAllDataForAI, profileStore, isProUser, getOracleUsage, incrementOracleUsage, FREE_ORACLE_DAILY, calculateLifeScores, vitalsStore } from '@/lib/store'
 import type { ChatMessage, UserProfile } from '@/lib/types'
 import Link from 'next/link'
 
@@ -99,7 +99,34 @@ function getDay1Prompts(profile: UserProfile | null): string[] {
   ]
 }
 
+function getContextualTeaser(): string {
+  try {
+    const scores = calculateLifeScores()
+    const vitals = vitalsStore.getRecent(7)
+    const lowestDomain = [
+      { label: 'health', score: scores.health.score },
+      { label: 'body', score: scores.body.score },
+      { label: 'wealth', score: scores.wealth.score },
+      { label: 'mind', score: scores.mind.score },
+    ].sort((a, b) => a.score - b.score)[0]
+
+    if (vitals.length >= 3) {
+      const avgSleep = vitals.reduce((s, v) => s + v.sleepHours, 0) / vitals.length
+      if (avgSleep < 6.5) return `Your sleep is averaging ${avgSleep.toFixed(1)}h — Oracle knows exactly what this is doing to your other scores. Unlock the full picture.`
+    }
+    if (lowestDomain.score < 30) {
+      const label = lowestDomain.label.charAt(0).toUpperCase() + lowestDomain.label.slice(1)
+      return `Your ${label} score is at ${lowestDomain.score}. Oracle has a specific protocol to bring it up — but it needs more context to give it to you.`
+    }
+    if (scores.overall >= 70) return `You're at ${scores.overall}/100. Oracle can see the ceiling — and exactly which 2 moves would push you past it.`
+    return `Your Life Score is ${scores.overall}/100. Oracle sees the patterns behind this number that you can't see from the data alone.`
+  } catch {
+    return 'Oracle can see patterns across all your data simultaneously. Upgrade to ask unlimited questions.'
+  }
+}
+
 function UpgradeModal({ used, onClose }: { used: number; onClose: () => void }) {
+  const teaser = getContextualTeaser()
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
@@ -108,13 +135,13 @@ function UpgradeModal({ used, onClose }: { used: number; onClose: () => void }) 
             <Sparkles className="w-7 h-7 text-primary" />
           </div>
           <h3 className="font-bold text-lg mb-1">Daily limit reached</h3>
-          <p className="text-sm text-muted-foreground">
-            You&apos;ve used {used}/{FREE_ORACLE_DAILY} free Oracle messages today.
-            Upgrade to Pro for unlimited access.
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {teaser}
           </p>
         </div>
-        <div className="space-y-3 text-sm mb-5">
-          {['Unlimited Oracle messages', 'AI Morning Brief auto-generation', 'AI Weekly Performance Review', 'All future Pro features'].map(f => (
+        <div className="space-y-2 text-sm mb-5 p-3 bg-secondary/50 rounded-xl">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-2">Pro unlocks</div>
+          {['Unlimited Oracle messages', 'AI Morning Brief — proactive daily insight', 'AI Weekly Performance Review', 'Cross-domain pattern detection'].map(f => (
             <div key={f} className="flex items-center gap-2.5">
               <div className="w-4 h-4 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center flex-shrink-0">
                 <div className="w-1.5 h-1.5 rounded-full bg-primary" />
@@ -123,10 +150,11 @@ function UpgradeModal({ used, onClose }: { used: number; onClose: () => void }) 
             </div>
           ))}
         </div>
-        <Link href="/pricing" className="block w-full bg-primary text-primary-foreground text-center py-3 rounded-xl font-semibold text-sm hover:bg-primary/90 transition-colors mb-2">
-          Upgrade to Pro — €14.99/mo
+        <Link href="/pricing" className="block w-full bg-primary text-primary-foreground text-center py-3 rounded-xl font-semibold text-sm hover:bg-primary/90 transition-colors shadow-md shadow-primary/20 mb-2">
+          Start 7-Day Free Trial — €0 today
         </Link>
-        <button onClick={onClose} className="w-full text-xs text-muted-foreground hover:text-foreground py-2 transition-colors">
+        <p className="text-center text-[10px] text-muted-foreground mb-2">Used {used}/{FREE_ORACLE_DAILY} free messages today</p>
+        <button onClick={onClose} className="w-full text-xs text-muted-foreground hover:text-foreground py-1.5 transition-colors">
           Continue tomorrow (resets at midnight)
         </button>
       </div>

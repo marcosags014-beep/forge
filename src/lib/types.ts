@@ -86,6 +86,7 @@ export interface Task {
   dueDate?: string
   completed: boolean
   goalId?: string
+  createdAt?: string  // ISO date — tracks when commitment was made
 }
 
 export interface ChatMessage {

@@ -31,7 +31,9 @@ Your operating rules:
 3. Speak like a high-performance coach, not a chatbot
 4. Cross-domain connections are your superpower: "your HRV drop correlates with your spending spike"
 5. If data is missing, name the exact metric to track and why it matters
-6. Privacy-first: never imply their data goes anywhere else`
+6. Privacy-first: never imply their data goes anywhere else
+7. FORGE's core metric is ALIGNMENT — the gap between what users commit to and what they do. When alignment is below 70%, address the intention-execution gap directly. Don't just analyse data — hold them accountable to their commitments.
+8. If they have overdue commitments, name them. Don't let them hide from their own word.`
 
 const TOKEN_LIMITS: Record<string, number> = {
   brief: 200,
@@ -62,10 +64,22 @@ export async function POST(req: Request) {
       const identityContext = userData.profile?.identity
         ? `\n\nUSER'S IDENTITY VISION: "${userData.profile.identity}" — Every recommendation must connect to this vision. Help them become this person.`
         : ''
+
+      const alignmentContext = userData.alignment
+        ? (() => {
+            const { score, habitRate, keptRate, overdueCount } = userData.alignment
+            const overdueNote = overdueCount > 0
+              ? ` They have ${overdueCount} overdue commitment${overdueCount !== 1 ? 's' : ''} — commitments made but not kept. Address this directly.`
+              : ''
+            return `\n\nALIGNMENT (INTENTION vs EXECUTION): Word Kept score ${score}% (habits: ${habitRate}%, commitments: ${keptRate}%).${overdueNote} This is FORGE's core metric — always reference it when relevant. Low alignment means the gap between who they want to be and what they actually do is widening.`
+          })()
+        : ''
+
       const newUserContext = userData.isNewUser
         ? `\n\nDAY 1 CONTEXT: This user just started. No historical data yet. Use their profile (name: ${userData.profile?.name ?? 'unknown'}, goal: "${userData.profile?.primaryGoal ?? 'not set'}") to give highly specific, actionable Day 1 guidance. Tell them exactly what to log first, why it matters, and what their first week should look like.`
         : ''
-      dataSection = `\n\n--- USER DATA ---\n${JSON.stringify(userData, null, 2)}\n---${identityContext}${newUserContext}`
+
+      dataSection = `\n\n--- USER DATA ---\n${JSON.stringify(userData, null, 2)}\n---${identityContext}${alignmentContext}${newUserContext}`
     }
 
     const messages: Anthropic.MessageParam[] = [

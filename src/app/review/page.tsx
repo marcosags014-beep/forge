@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns'
-import { ChevronLeft, ChevronRight, RefreshCw, Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { format, startOfWeek, addWeeks } from 'date-fns'
+import { ChevronLeft, ChevronRight, RefreshCw, Trophy, TrendingUp, TrendingDown, Minus, Sparkles, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts'
-import { calculateLifeScores, vitalsStore, workoutsStore, habitsStore, financeStore, goalsStore, getAllDataForAI } from '@/lib/store'
+import { calculateLifeScores, vitalsStore, workoutsStore, habitsStore, financeStore, goalsStore, getAllDataForAI, isProUser } from '@/lib/store'
 import type { LifeScores } from '@/lib/types'
+import Link from 'next/link'
 
 function scoreColor(s: number) {
   return s >= 75 ? '#22c55e' : s >= 50 ? '#f59e0b' : '#ef4444'
@@ -51,12 +52,14 @@ export default function ReviewPage() {
   const [improvements, setImprovements] = useState<string[]>([])
   const [nextWeek, setNextWeek] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
+  const [isPro, setIsPro] = useState(false)
 
   const weekStart = startOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 })
   const weekLabel = `Week of ${format(weekStart, 'MMM d, yyyy')}`
   const isCurrent = weekOffset === 0
 
   useEffect(() => {
+    setIsPro(isProUser())
     setScores(calculateLifeScores())
     // Compute quick local wins/improvements
     const habits = habitsStore.getAll()
@@ -216,14 +219,50 @@ export default function ReviewPage() {
       {/* AI Narrative */}
       <div className="forge-card mb-6">
         <div className="flex items-center justify-between mb-4">
-          <div className="forge-label">AI Coach Assessment</div>
-          <Button onClick={generateReview} disabled={generating} variant="outline" size="sm" className="gap-2">
-            <RefreshCw className={`w-3.5 h-3.5 ${generating ? 'animate-spin' : ''}`} />
-            {generating ? 'Generating…' : 'Generate Review'}
-          </Button>
+          <div className="forge-label flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            AI Coach Assessment
+            {!isPro && <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-full">PRO</span>}
+          </div>
+          {isPro && (
+            <Button onClick={generateReview} disabled={generating} variant="outline" size="sm" className="gap-2">
+              <RefreshCw className={`w-3.5 h-3.5 ${generating ? 'animate-spin' : ''}`} />
+              {generating ? 'Generating…' : 'Generate Review'}
+            </Button>
+          )}
         </div>
 
-        {generating ? (
+        {!isPro ? (
+          <div className="relative">
+            {/* Blurred preview */}
+            <div className="space-y-2 mb-4 select-none pointer-events-none" aria-hidden>
+              {[
+                "Sleep debt is compounding. Three nights under 6.5h has your HRV trending down 12% — your body is running on borrowed time.",
+                "Habit completion jumped to 78%, up from 61% last week. This is the consistency that compounds.",
+                "Financial discipline is strong — on track for your savings target. Watch discretionary spend on Fridays.",
+              ].map((line, i) => (
+                <p key={i} className={`text-sm leading-relaxed ${i === 0 ? '' : 'blur-sm'}`}>{line}</p>
+              ))}
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/60 to-background flex items-end justify-center pb-2">
+            </div>
+            <div className="relative flex flex-col items-center gap-3 pt-2 border-t border-border">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Lock className="w-4 h-4 text-primary" />
+                Unlock your AI coach analysis
+              </div>
+              <p className="text-xs text-muted-foreground text-center max-w-xs">
+                Get a frank, data-driven assessment of your week — specific numbers, real patterns, no fluff.
+              </p>
+              <Link href="/pricing">
+                <Button size="sm" className="bg-primary text-primary-foreground gap-2 shadow-md shadow-primary/20">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Start Free Trial
+                </Button>
+              </Link>
+            </div>
+          </div>
+        ) : generating ? (
           <div className="space-y-2">
             {[80, 90, 60].map((w, i) => (
               <div key={i} className="h-4 bg-secondary rounded animate-pulse" style={{ width: `${w}%` }} />

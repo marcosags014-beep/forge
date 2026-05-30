@@ -160,7 +160,9 @@ export const tasksStore = {
   save: (task: Task) => {
     const all = getStore<Task>('tasks')
     const idx = all.findIndex(t => t.id === task.id)
-    if (idx >= 0) all[idx] = task; else all.unshift(task)
+    // Auto-stamp createdAt for new commitments
+    const toSave = idx < 0 && !task.createdAt ? { ...task, createdAt: today() } : task
+    if (idx >= 0) all[idx] = toSave; else all.unshift(toSave)
     setStore('tasks', all)
   },
   toggle: (id: string) => {
@@ -170,6 +172,10 @@ export const tasksStore = {
     setStore('tasks', all)
   },
   delete: (id: string) => setStore('tasks', getStore<Task>('tasks').filter(t => t.id !== id)),
+  getOverdue: () => {
+    const todayStr = today()
+    return getStore<Task>('tasks').filter(t => !t.completed && t.createdAt && t.createdAt < todayStr)
+  },
 }
 
 export const chatStore = {
@@ -206,6 +212,28 @@ export const achievementsStore = {
       setStore('achievements', all)
     }
   },
+}
+
+// ── Alignment / Word Kept score ──────────────────────────
+export function getAlignmentScore(): { score: number; habitRate: number; keptRate: number; overdueCount: number } {
+  const habitRate = habitsStore.completionRateFor(7)
+
+  const allTasks = getStore<Task>('tasks')
+  const todayStr = today()
+  // Commitments made before today are either kept (completed) or broken (still open)
+  const pastCommitments = allTasks.filter(t => t.createdAt && t.createdAt < todayStr)
+  const keptCount = pastCommitments.filter(t => t.completed).length
+  const overdueCount = pastCommitments.filter(t => !t.completed).length
+  const taskTotal = keptCount + overdueCount
+  const keptRate = taskTotal > 0 ? Math.round((keptCount / taskTotal) * 100) : 100
+
+  // Blend: habits drive 60% (recurring), tasks 40% (one-off commitments)
+  // If no tasks exist yet, only count habits
+  const score = taskTotal === 0
+    ? habitRate
+    : Math.round(habitRate * 0.6 + keptRate * 0.4)
+
+  return { score, habitRate, keptRate, overdueCount }
 }
 
 // ── Computed scores ──────────────────────────────────────
@@ -258,9 +286,14 @@ export function calculateLifeScores(): LifeScores {
   const prevHabitRate = habitsStore.completionRateFor(14)
   const mindTrend = habitRate > prevHabitRate + 5 ? 'up' : habitRate < prevHabitRate - 5 ? 'down' : 'flat'
 
-  const overall = Math.round(
-    healthScore * 0.30 + bodyScore * 0.20 + wealthScore * 0.25 + mindScore * 0.25
-  )
+  // Domain composite (pure tracking)
+  const domainComposite = healthScore * 0.30 + bodyScore * 0.20 + wealthScore * 0.25 + mindScore * 0.25
+  // Alignment multiplier: 100% kept = no penalty; 0% kept = 20% deduction
+  // Only apply if there's enough data to measure alignment meaningfully
+  const { score: alignmentScore, overdueCount } = getAlignmentScore()
+  const hasAlignmentData = habitsStore.getAll().length > 0 || overdueCount > 0
+  const alignmentMultiplier = hasAlignmentData ? (0.80 + (alignmentScore / 100) * 0.20) : 1
+  const overall = Math.round(domainComposite * alignmentMultiplier)
 
   return {
     overall,
@@ -549,8 +582,15 @@ export function isProUser(): boolean {
   } catch { return false }
 }
 
-export function setProUser(token: string, until: string) {
-  localStorage.setItem('forge_pro', JSON.stringify({ token, until }))
+export function setProUser(token: string, until: string, customerId?: string) {
+  localStorage.setItem('forge_pro', JSON.stringify({ token, until, customerId }))
+}
+
+export function getProCustomerId(): string | null {
+  try {
+    const raw = localStorage.getItem('forge_pro')
+    return raw ? (JSON.parse(raw).customerId ?? null) : null
+  } catch { return null }
 }
 
 export function getOracleUsage(): { date: string; count: number } {
@@ -699,6 +739,7 @@ export function getAllDataForAI() {
   const workouts = workoutsStore.getRecent(7)
   const finance = financeStore.getAll()
   const profile = profileStore.get()
+  const alignment = getAlignmentScore()
   return {
     profile,
     isNewUser: vitals.length === 0 && workouts.length === 0 && finance.length === 0,
@@ -711,6 +752,8 @@ export function getAllDataForAI() {
     goals: goalsStore.getAll(),
     habits: habitsStore.getAll(),
     commitments: tasksStore.getAll().filter(t => !t.completed).slice(0, 10),
+    overdueCommitments: tasksStore.getOverdue().map(t => t.title),
+    alignment,
     lifeScores: calculateLifeScores(),
     insights: generateInsights().slice(0, 5),
   }

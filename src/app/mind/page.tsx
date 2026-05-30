@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2, Circle, Plus, Trash2, Target, Zap, ListTodo, ChevronRight, Trophy, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { goalsStore, habitsStore, tasksStore, generateId, today, getHabitStreak, ALL_ACHIEVEMENTS, achievementsStore, checkAndUnlockAchievements } from '@/lib/store'
+import { goalsStore, habitsStore, tasksStore, generateId, today, getHabitStreak, ALL_ACHIEVEMENTS, achievementsStore, checkAndUnlockAchievements, getAlignmentScore } from '@/lib/store'
 import type { Goal, Habit, Task, Achievement } from '@/lib/types'
 import { format, subDays } from 'date-fns'
 
@@ -99,8 +99,13 @@ function TasksPanel() {
   const [newTitle, setNewTitle] = useState('')
   const [priority, setPriority] = useState<'high' | 'medium' | 'low'>('medium')
   const [dueDate, setDueDate] = useState('')
+  const [alignment, setAlignment] = useState({ score: 0, habitRate: 0, keptRate: 100, overdueCount: 0 })
+  const todayStr = today()
 
-  const reload = () => setTasks(tasksStore.getAll())
+  const reload = () => {
+    setTasks(tasksStore.getAll())
+    setAlignment(getAlignmentScore())
+  }
   useEffect(reload, [])
 
   function addTask() {
@@ -110,13 +115,70 @@ function TasksPanel() {
     reload()
   }
 
-  const active = tasks.filter(t => !t.completed)
+  const allActive = tasks.filter(t => !t.completed)
+  // Overdue = created before today, still open
+  const overdue = allActive.filter(t => t.createdAt && t.createdAt < todayStr)
+  // Today's = created today or no createdAt
+  const todayTasks = allActive.filter(t => !t.createdAt || t.createdAt >= todayStr)
   const done = tasks.filter(t => t.completed)
 
   const priorityBg = { high: 'bg-red-500/10 border-red-500/20 text-red-400', medium: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400', low: 'bg-secondary text-muted-foreground' }
 
   return (
     <div className="space-y-4">
+      {/* Alignment score */}
+      {tasks.length > 0 && (
+        <div className="forge-card py-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold">Word Kept Rate</span>
+            <span className={`text-sm font-bold tabular-nums ${alignment.keptRate >= 80 ? 'text-green-400' : alignment.keptRate >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+              {alignment.keptRate}%
+            </span>
+          </div>
+          <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${alignment.keptRate}%`,
+                backgroundColor: alignment.keptRate >= 80 ? '#22c55e' : alignment.keptRate >= 60 ? '#f59e0b' : '#ef4444',
+              }} />
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1.5">
+            {done.length} kept · {overdue.length} overdue · {todayTasks.length} active today
+          </p>
+        </div>
+      )}
+
+      {/* Overdue commitments — broken promises */}
+      {overdue.length > 0 && (
+        <div className="forge-card border-red-500/20 bg-red-500/5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+            <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Overdue — {overdue.length} broken commitment{overdue.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="space-y-2">
+            {overdue.map(task => (
+              <div key={task.id} className="flex items-start gap-3 group">
+                <button onClick={() => { tasksStore.toggle(task.id); reload() }} className="mt-0.5 flex-shrink-0">
+                  <Circle className="w-4 h-4 text-red-400 group-hover:text-green-400 transition-colors" />
+                </button>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-red-300">{task.title}</span>
+                  {task.createdAt && (
+                    <div className="text-[10px] text-red-500/70 mt-0.5">
+                      Committed {format(new Date(task.createdAt), 'MMM d')} — {Math.floor((Date.now() - new Date(task.createdAt).getTime()) / 86400000)}d ago
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => { tasksStore.delete(task.id); reload() }}
+                  className="text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="forge-card space-y-3">
         <span className="forge-label flex items-center gap-2"><ListTodo className="w-3.5 h-3.5" />Add Commitment</span>
         <div className="flex gap-2">
@@ -142,11 +204,11 @@ function TasksPanel() {
         </div>
       </div>
 
-      {active.length > 0 && (
+      {todayTasks.length > 0 && (
         <div className="forge-card">
-          <span className="forge-label mb-3 block">Active commitments ({active.length})</span>
+          <span className="forge-label mb-3 block">Today&apos;s commitments ({todayTasks.length})</span>
           <div className="space-y-2">
-            {active.map(task => (
+            {todayTasks.map(task => (
               <div key={task.id} className="flex items-start gap-3 group">
                 <button onClick={() => { tasksStore.toggle(task.id); reload() }} className="mt-0.5 flex-shrink-0">
                   <Circle className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -172,7 +234,7 @@ function TasksPanel() {
         </div>
       )}
 
-      {active.length === 0 && done.length === 0 && (
+      {allActive.length === 0 && done.length === 0 && (
         <div className="forge-card text-center py-8">
           <ListTodo className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">No commitments yet.</p>
@@ -186,7 +248,7 @@ function TasksPanel() {
           <div className="space-y-2 max-h-40 overflow-y-auto scrollbar-hide">
             {done.slice(0, 10).map(task => (
               <div key={task.id} className="flex items-center gap-3">
-                <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
                 <span className="text-sm text-muted-foreground line-through flex-1">{task.title}</span>
                 <button onClick={() => { tasksStore.delete(task.id); reload() }}
                   className="text-muted-foreground hover:text-red-400">

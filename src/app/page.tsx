@@ -8,7 +8,8 @@ import Link from 'next/link'
 import {
   vitalsStore, habitsStore, tasksStore, financeStore, workoutsStore, journalStore,
   calculateLifeScores, generateInsights, getDailyCall, today, getHabitStreak,
-  checkAndUnlockAchievements, getProjections, profileStore, getAllDataForAI,
+  checkAndUnlockAchievements, getProjections, profileStore, getAllDataForAI, isProUser,
+  getAlignmentScore,
 } from '@/lib/store'
 import type { VitalEntry, LifeScores, Task, Habit, Projection } from '@/lib/types'
 
@@ -127,7 +128,10 @@ export default function CommandCenter() {
   const [projections, setProjections] = useState<Projection[]>([])
   const [oracleBrief, setOracleBrief] = useState<string | null>(null)
   const [loadingBrief, setLoadingBrief] = useState(false)
-  const [profile, setProfile] = useState<{ name?: string; identity?: string } | null>(null)
+  const [profile, setProfile] = useState<{ name?: string; identity?: string; joinedAt?: string } | null>(null)
+  const [isPro, setIsPro] = useState(false)
+  const [showProNudge, setShowProNudge] = useState(false)
+  const [alignment, setAlignment] = useState<{ score: number; habitRate: number; keptRate: number; overdueCount: number }>({ score: 0, habitRate: 0, keptRate: 100, overdueCount: 0 })
   const todayStr = today()
   const briefFetchedRef = useRef(false)
 
@@ -137,8 +141,22 @@ export default function CommandCenter() {
     setHabits(habitsStore.getAll())
     setVital(vitalsStore.getLast())
     setProjections(getProjections())
-    setProfile(profileStore.get())
+    const p = profileStore.get()
+    setProfile(p)
+    setAlignment(getAlignmentScore())
     checkAndUnlockAchievements()
+    const pro = isProUser()
+    setIsPro(pro)
+    if (!pro && p?.joinedAt) {
+      const daysSinceJoin = Math.floor((Date.now() - new Date(p.joinedAt).getTime()) / 86400000)
+      if (daysSinceJoin >= 7) {
+        try {
+          const dismissed = localStorage.getItem('forge_nudge_dismiss')
+          const dismissedDaysAgo = dismissed ? Math.floor((Date.now() - new Date(dismissed).getTime()) / 86400000) : 999
+          setShowProNudge(dismissedDaysAgo >= 3)
+        } catch { setShowProNudge(true) }
+      }
+    }
   }, [])
 
   useEffect(() => { reload() }, [reload])
@@ -237,6 +255,27 @@ export default function CommandCenter() {
         </div>
       )}
 
+      {/* Day 7+ Pro nudge */}
+      {showProNudge && !isPro && (
+        <div className="relative px-4 py-3.5 rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/8 to-primary/4 overflow-hidden">
+          <div className="absolute right-3 top-3">
+            <button onClick={() => {
+              try { localStorage.setItem('forge_nudge_dismiss', new Date().toISOString()) } catch {}
+              setShowProNudge(false)
+            }} className="text-muted-foreground hover:text-foreground text-lg leading-none">×</button>
+          </div>
+          <p className="text-[10px] text-primary uppercase tracking-widest font-semibold mb-1">You&apos;ve been building for 7+ days</p>
+          <p className="text-sm font-semibold mb-2 pr-6">Unlock the full accountability system</p>
+          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+            Unlimited Oracle queries, AI Weekly Review, and cross-domain insights — everything you need to keep the momentum going.
+          </p>
+          <Link href="/pricing" className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-foreground bg-primary px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors shadow-md shadow-primary/20">
+            <Sparkles className="w-3 h-3" />
+            Start 7-Day Free Trial — €0 today
+          </Link>
+        </div>
+      )}
+
       {/* Oracle proactive brief */}
       <div className="forge-card">
         <div className="flex items-center justify-between mb-3">
@@ -292,7 +331,7 @@ export default function CommandCenter() {
         </div>
       </div>
 
-      {/* Life Score + Domain scores — compact horizontal */}
+      {/* Life Score + Alignment + Domain scores */}
       <div className="forge-card">
         <div className="flex gap-5 items-start">
           <div className="flex flex-col items-center gap-1.5">
@@ -304,6 +343,35 @@ export default function CommandCenter() {
             <DomainRow label="Body"    score={scores.body.score}    trend={scores.body.trend}    icon={Dumbbell}   color="#f97316" noData={!bodyHasData}   href="/body" />
             <DomainRow label="Wealth"  score={scores.wealth.score}  trend={scores.wealth.trend}  icon={TrendingUp} color="#f59e0b" noData={!wealthHasData} href="/wealth" />
             <DomainRow label="Mind"    score={scores.mind.score}    trend={scores.mind.trend}    icon={Brain}      color="#a78bfa" noData={!mindHasData}   href="/mind" />
+          </div>
+        </div>
+
+        {/* Alignment / Word Kept — FORGE's core metric */}
+        <div className="mt-4 pt-4 border-t border-border">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Alignment · Word Kept</span>
+            <span className={`text-xs font-bold tabular-nums ${
+              alignment.score >= 80 ? 'text-green-400' :
+              alignment.score >= 60 ? 'text-yellow-400' : 'text-red-400'
+            }`}>{alignment.score}%</span>
+          </div>
+          <div className="h-2 bg-secondary rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-1000"
+              style={{
+                width: `${alignment.score}%`,
+                backgroundColor: alignment.score >= 80 ? '#22c55e' : alignment.score >= 60 ? '#f59e0b' : '#ef4444',
+                boxShadow: `0 0 6px ${alignment.score >= 80 ? '#22c55e' : alignment.score >= 60 ? '#f59e0b' : '#ef4444'}66`,
+              }} />
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-[10px] text-muted-foreground">
+              Habits {alignment.habitRate}% · Commitments {alignment.keptRate}%
+            </span>
+            {alignment.overdueCount > 0 && (
+              <Link href="/mind" className="text-[10px] font-semibold text-red-400 hover:underline">
+                {alignment.overdueCount} overdue →
+              </Link>
+            )}
           </div>
         </div>
       </div>

@@ -10,18 +10,19 @@ const FREE_FEATURES = [
   'Vitals tracking (sleep, HRV, mood)',
   'Workout & nutrition logging',
   'Habit tracker with streaks',
-  'Task & goal management',
+  'Commitments & goal management',
   'Basic finance tracking',
-  '30-day data history',
+  '10 Oracle messages/day',
 ]
 
 const PRO_FEATURES = [
   'Everything in Free',
-  'Oracle AI — full life coach access',
-  'Cross-domain insight engine',
-  'Weekly AI performance review',
+  'Unlimited Oracle AI messages',
+  'AI Morning Brief — daily proactive insight',
+  'AI Weekly Performance Review',
+  'Cross-domain intelligence (links sleep → money → goals)',
   'Crisis detection & mental health alerts',
-  'Life Score with trend analysis',
+  'Life Score trend analysis',
   'Unlimited data history',
   'Export your data anytime',
   'Priority support',
@@ -34,6 +35,7 @@ const TESTIMONIALS = [
 ]
 
 export default function PricingPage() {
+  const [plan, setPlan] = useState<'monthly' | 'annual'>('annual')
   const [checkingOut, setCheckingOut] = useState(false)
 
   async function startCheckout() {
@@ -43,7 +45,7 @@ export default function PricingPage() {
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ referral }),
+        body: JSON.stringify({ referral, plan }),
       })
       const data = await res.json()
       if (data.url) window.location.href = data.url
@@ -54,6 +56,9 @@ export default function PricingPage() {
       setCheckingOut(false)
     }
   }
+
+  const monthlyPrice = plan === 'annual' ? '8.25' : '14.99'
+  const annualTotal = '99'
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -77,14 +82,14 @@ export default function PricingPage() {
       <section className="px-6 md:px-16 py-20 text-center max-w-4xl mx-auto">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-full text-xs text-primary font-semibold mb-6">
           <Star className="w-3 h-3" />
-          The all-in-one Life OS — no other app does this
+          The all-in-one accountability OS — nothing else does this
         </div>
         <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
-          One app for<br />
-          <span className="text-primary">every domain of your life.</span>
+          Become who you<br />
+          <span className="text-primary">committed to be.</span>
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-          Health, fitness, finance, and goals — unified by AI that sees the connections between them. Stop managing 5 apps. Start building one life.
+          Health, fitness, finance, and goals — unified by AI that holds you accountable across every domain. Stop tracking. Start becoming.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link href="/setup">
@@ -99,7 +104,7 @@ export default function PricingPage() {
             </Button>
           </Link>
         </div>
-        <p className="text-xs text-muted-foreground mt-4">Free forever tier available. Pro from €14.99/month.</p>
+        <p className="text-xs text-muted-foreground mt-4">Free forever tier available. Pro from €8.25/month (billed annually).</p>
       </section>
 
       {/* What it replaces */}
@@ -122,7 +127,7 @@ export default function PricingPage() {
           </div>
           <div className="text-center mt-6">
             <span className="text-muted-foreground text-sm line-through mr-3">€289–529/yr for 4 separate apps</span>
-            <span className="text-primary font-bold text-lg">FORGE: from free</span>
+            <span className="text-primary font-bold text-lg">FORGE Pro: €99/yr</span>
           </div>
         </div>
       </section>
@@ -130,7 +135,20 @@ export default function PricingPage() {
       {/* Pricing */}
       <section className="px-6 md:px-16 py-20 max-w-4xl mx-auto" id="pricing">
         <h2 className="text-3xl font-bold text-center mb-4">Simple, honest pricing.</h2>
-        <p className="text-muted-foreground text-center mb-12">No hidden fees. No data selling. Cancel anytime.</p>
+        <p className="text-muted-foreground text-center mb-8">No hidden fees. No data selling. Cancel anytime.</p>
+
+        {/* Billing toggle */}
+        <div className="flex items-center justify-center mb-10">
+          <div className="forge-tabs">
+            <button onClick={() => setPlan('monthly')} className={`forge-tab ${plan === 'monthly' ? 'forge-tab-active' : ''}`}>
+              Monthly
+            </button>
+            <button onClick={() => setPlan('annual')} className={`forge-tab ${plan === 'annual' ? 'forge-tab-active' : ''}`}>
+              Annual
+              <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded-full">SAVE 45%</span>
+            </button>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Free */}
@@ -160,10 +178,21 @@ export default function PricingPage() {
             </div>
             <div>
               <div className="text-lg font-bold mb-1">FORGE Pro</div>
-              <div className="text-3xl font-bold text-primary">
-                €14.99<span className="text-sm font-normal text-muted-foreground">/month</span>
+              <div className="flex items-end gap-2">
+                <div className="text-3xl font-bold text-primary">
+                  €{monthlyPrice}<span className="text-sm font-normal text-muted-foreground">/month</span>
+                </div>
+                {plan === 'annual' && (
+                  <div className="text-sm text-muted-foreground mb-1 line-through">€14.99</div>
+                )}
               </div>
-              <div className="text-sm text-muted-foreground mt-1">or €99/yr (save 45%)</div>
+              {plan === 'annual' ? (
+                <div className="text-sm text-green-400 font-medium mt-1">€{annualTotal}/year — save €81 vs monthly</div>
+              ) : (
+                <div className="text-sm text-muted-foreground mt-1">
+                  Switch to annual and <span className="text-green-400 font-medium">save €81/year</span>
+                </div>
+              )}
             </div>
             <ul className="space-y-2.5 flex-1">
               {PRO_FEATURES.map(f => (
@@ -180,12 +209,12 @@ export default function PricingPage() {
                 : <><Zap className="w-4 h-4" />Start 7-Day Free Trial</>
               }
             </Button>
-            <p className="text-xs text-center text-muted-foreground">No charge for 7 days. Cancel anytime.</p>
+            <p className="text-xs text-center text-muted-foreground -mt-2">No charge for 7 days. Cancel anytime.</p>
           </div>
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
-          Team & enterprise plans available. <a href="mailto:forge@yourapp.com" className="text-primary hover:underline">Contact us.</a>
+          Team & enterprise plans available. <a href="mailto:support@forge-life.app" className="text-primary hover:underline">Contact us.</a>
         </p>
       </section>
 
@@ -217,8 +246,8 @@ export default function PricingPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
           {[
             { icon: Shield, title: 'Your data stays yours', desc: 'Local-first storage. We never sell your data. GDPR compliant. Export everything, anytime.' },
-            { icon: Heart, title: 'Built for real people', desc: 'Not an athlete app. Not a finance bro app. Built for anyone who takes their life seriously.' },
-            { icon: Sparkles, title: 'AI that actually knows you', desc: 'Oracle sees all your domains simultaneously. Not generic chatbot advice — specific to your numbers.' },
+            { icon: Heart, title: 'Built for real accountability', desc: 'Not a habit tracker. Not a fitness app. A system that holds you to the commitments you make to yourself.' },
+            { icon: Sparkles, title: 'AI that actually knows you', desc: 'Oracle sees all your domains simultaneously. Not generic advice — specific to your numbers, your patterns, your goals.' },
           ].map(({ icon: Icon, title, desc }) => (
             <div key={title} className="flex flex-col items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -233,7 +262,7 @@ export default function PricingPage() {
 
       {/* CTA */}
       <section className="px-6 md:px-16 py-20 text-center border-t border-border">
-        <h2 className="text-3xl font-bold mb-4">Start building your life today.</h2>
+        <h2 className="text-3xl font-bold mb-4">Start building the life you promised yourself.</h2>
         <p className="text-muted-foreground mb-8 max-w-md mx-auto">Free to start. Takes 3 minutes to set up. Your Life Score is waiting.</p>
         <Link href="/setup">
           <Button className="bg-primary text-primary-foreground px-10 py-6 text-base gap-2 shadow-lg shadow-primary/20">

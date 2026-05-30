@@ -19,7 +19,7 @@ export default function ActivatePage() {
       .then(r => r.json())
       .then(data => {
         if (data.token && data.until) {
-          setProUser(data.token, data.until)
+          setProUser(data.token, data.until, data.customerId ?? undefined)
           setStatus('success')
         } else {
           setStatus('error')

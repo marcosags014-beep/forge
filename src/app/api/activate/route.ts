@@ -47,8 +47,9 @@ export async function GET(req: Request) {
     // Token valid for 35 days (billing cycle + grace)
     const until = new Date(Date.now() + 35 * 24 * 60 * 60 * 1000).toISOString()
     const token = createProToken(until)
+    const customerId = typeof session.customer === 'string' ? session.customer : (session.customer?.id ?? null)
 
-    return Response.json({ token, until })
+    return Response.json({ token, until, customerId })
   } catch (error) {
     console.error('Activate error:', error)
     return Response.json({ error: 'Could not verify payment' }, { status: 500 })
