@@ -35,17 +35,18 @@ export default function SetupPage() {
   const [step, setStep] = useState(1)
   const [name, setName] = useState('')
   const [focus, setFocus] = useState<'health' | 'fitness' | 'wealth' | 'mind'>('fitness')
+  const [identity, setIdentity] = useState('')
   const [vitals, setVitals] = useState({ sleepHours: 7, hrv: 60, rhr: 60, energy: 7, mood: 7 })
   const [hasWearable, setHasWearable] = useState(false)
   const [habits, setHabits] = useState(['', '', ''])
   const [financialGoal, setFinancialGoal] = useState('')
-  const TOTAL = 5
+  const TOTAL = 6
 
   function next() { setStep(s => Math.min(s + 1, TOTAL)) }
 
   function finish() {
-    // Save profile
-    profileStore.save({ name: name || 'You', primaryGoal: focus, setupComplete: true, joinedAt: new Date().toISOString() })
+    // Save profile with identity vision
+    profileStore.save({ name: name || 'You', primaryGoal: focus, identity: identity.trim() || undefined, setupComplete: true, joinedAt: new Date().toISOString() })
 
     // Save baseline vitals (hrv/rhr only if user has a wearable)
     vitalsStore.save({
@@ -123,8 +124,49 @@ export default function SetupPage() {
           </div>
         )}
 
-        {/* Step 2 — Baseline vitals */}
+        {/* Step 2 — Identity */}
         {step === 2 && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <h2 className="text-2xl font-bold mb-2">Who do you want to become?</h2>
+            <p className="text-muted-foreground mb-8 leading-relaxed">
+              Not what you want to achieve — <em>who you want to be</em>. This becomes the lens through which Oracle interprets your data.
+            </p>
+
+            <div className="space-y-4 mb-6">
+              <textarea
+                value={identity}
+                onChange={e => setIdentity(e.target.value)}
+                rows={4}
+                placeholder={`e.g. "I want to be someone who trains 4 times a week, sleeps 8 hours, saves 20% of income and has the energy to work on what matters most."`}
+                className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none leading-relaxed"
+              />
+              <p className="text-xs text-muted-foreground">Write it in first person. Be specific. Oracle will use this to connect every recommendation to your vision.</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 mb-8">
+              {[
+                `I want to be someone who trains consistently, sleeps well and has the energy to build the life I want`,
+                `I want to be financially free — saving 25%+ of income, with no money stress and investments working for me`,
+                `I want to be at peak health — strong, lean, recovered, with the discipline that comes from daily commitment`,
+              ].map(example => (
+                <button key={example} onClick={() => setIdentity(example)}
+                  className={`text-left px-4 py-3 rounded-xl border text-xs leading-relaxed transition-all ${identity === example ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-card border-border text-muted-foreground hover:border-primary/20 hover:text-foreground'}`}>
+                  &ldquo;{example}&rdquo;
+                </button>
+              ))}
+            </div>
+
+            <Button onClick={next} className="w-full bg-primary text-primary-foreground py-6 text-base gap-2">
+              Continue <ChevronRight className="w-4 h-4" />
+            </Button>
+            <button onClick={next} className="w-full text-center text-sm text-muted-foreground mt-3 hover:text-foreground transition-colors">
+              Skip for now
+            </button>
+          </div>
+        )}
+
+        {/* Step 3 — Baseline vitals */}
+        {step === 3 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
             <h2 className="text-2xl font-bold mb-2">Set your baseline.</h2>
             <p className="text-muted-foreground mb-8">How were you feeling when you woke up today? This starts your Life Score.</p>
@@ -178,8 +220,8 @@ export default function SetupPage() {
           </div>
         )}
 
-        {/* Step 3 — Habits */}
-        {step === 3 && (
+        {/* Step 4 — Habits */}
+        {step === 4 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
             <h2 className="text-2xl font-bold mb-2">Pick your daily habits.</h2>
             <p className="text-muted-foreground mb-6">Start with 3. You can add more later. Identity is built through daily reps.</p>
@@ -209,8 +251,8 @@ export default function SetupPage() {
           </div>
         )}
 
-        {/* Step 4 — Financial goal */}
-        {step === 4 && (
+        {/* Step 5 — Financial goal */}
+        {step === 5 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
             <h2 className="text-2xl font-bold mb-2">What&apos;s your financial goal?</h2>
             <p className="text-muted-foreground mb-8">Financial health is one of the biggest drivers of mental and physical health. Let FORGE track it.</p>
@@ -244,8 +286,8 @@ export default function SetupPage() {
           </div>
         )}
 
-        {/* Step 5 — Meet Oracle */}
-        {step === 5 && (
+        {/* Step 6 — Meet Oracle */}
+        {step === 6 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 text-center">
             <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">
               <Sparkles className="w-10 h-10 text-primary" />

@@ -1,7 +1,7 @@
 import type {
   VitalEntry, WorkoutEntry, NutritionEntry, BodyMetric,
   Transaction, Goal, Habit, Task, ChatMessage,
-  LifeScores, InsightCard, Achievement, UserProfile, JournalEntry
+  LifeScores, InsightCard, Achievement, UserProfile, JournalEntry, Projection
 } from './types'
 
 // ── Core store helpers ───────────────────────────────────
@@ -581,12 +581,126 @@ export function getReferralCode(): string {
   } catch { return '' }
 }
 
+export function getProjections(): Projection[] {
+  const projections: Projection[] = []
+  const todayStr = today()
+
+  // Goal projection — based on progress rate vs target date
+  const activeGoals = goalsStore.getAll().filter(g => g.status === 'active' && g.progress > 2)
+  for (const goal of activeGoals.slice(0, 1)) {
+    const joinedAt = profileStore.get()?.joinedAt
+    const daysSinceJoin = joinedAt
+      ? Math.max(1, Math.floor((Date.now() - new Date(joinedAt).getTime()) / 86400000))
+      : 30
+    const progressPerDay = goal.progress / daysSinceJoin
+    if (progressPerDay > 0) {
+      const daysLeft = Math.ceil((100 - goal.progress) / progressPerDay)
+      if (daysLeft > 0 && daysLeft < 400) {
+        const label = goal.title.length > 32 ? goal.title.slice(0, 32) + '…' : goal.title
+        projections.push({
+          text: `At this pace, you'll complete "${label}" in ~${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
+          type: daysLeft < 45 ? 'positive' : 'neutral',
+          icon: '🎯',
+        })
+      }
+    }
+  }
+
+  // Finance — monthly savings projection
+  const last30 = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - i); return d.toISOString().split('T')[0]
+  })
+  const recentTxs = financeStore.getAll().filter(t => last30.includes(t.date))
+  const income30 = recentTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
+  const expense30 = recentTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+  if (income30 > 0) {
+    const savings = income30 - expense30
+    const rate = Math.round((savings / income30) * 100)
+    if (rate >= 15) {
+      projections.push({
+        text: `${rate}% savings rate — on track to keep €${Math.round(savings)} this month`,
+        type: 'positive',
+        icon: '💰',
+      })
+    } else if (savings < 0) {
+      projections.push({
+        text: `Spending exceeds income by €${Math.round(-savings)} this month — review before month end`,
+        type: 'warning',
+        icon: '⚠️',
+      })
+    }
+  }
+
+  // Sleep trend
+  const recentVitals = vitalsStore.getRecent(14)
+  if (recentVitals.length >= 5) {
+    const week1 = recentVitals.slice(0, 7)
+    const week2 = recentVitals.slice(7, 14)
+    const avg1 = week1.reduce((s, v) => s + v.sleepHours, 0) / week1.length
+    const avg2 = week2.length > 0 ? week2.reduce((s, v) => s + v.sleepHours, 0) / week2.length : avg1
+    if (avg1 >= 7.5) {
+      projections.push({
+        text: `${avg1.toFixed(1)}h sleep average this week — recovery optimised for performance`,
+        type: 'positive',
+        icon: '😴',
+      })
+    } else if (avg1 < 6.5 && avg1 < avg2 - 0.2) {
+      projections.push({
+        text: `Sleep dropping to ${avg1.toFixed(1)}h avg — performance and recovery will degrade within days`,
+        type: 'warning',
+        icon: '😴',
+      })
+    }
+  }
+
+  // Habit consistency
+  const allHabits = habitsStore.getAll()
+  if (allHabits.length > 0) {
+    const last7 = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - i); return d.toISOString().split('T')[0]
+    })
+    const done = allHabits.reduce((s, h) => s + last7.filter(d => h.completions.includes(d)).length, 0)
+    const possible = allHabits.length * 7
+    const rate = possible > 0 ? Math.round((done / possible) * 100) : 0
+    if (rate >= 85) {
+      projections.push({
+        text: `${rate}% commitment rate this week — your identity is solidifying through repetition`,
+        type: 'positive',
+        icon: '🔥',
+      })
+    } else if (rate < 40 && allHabits.length > 1) {
+      projections.push({
+        text: `${rate}% habit completion — closing this gap is the highest-leverage change you can make`,
+        type: 'warning',
+        icon: '⚡',
+      })
+    }
+  }
+
+  // Workout cadence
+  const workouts14 = workoutsStore.getAll().filter(w => {
+    const d = new Date(); d.setDate(d.getDate() - 14)
+    return new Date(w.date) >= d
+  })
+  if (workouts14.length >= 4) {
+    const perWeek = workouts14.length / 2
+    projections.push({
+      text: `${perWeek.toFixed(1)} sessions/week — ${perWeek >= 4 ? 'elite consistency. Strength gains compounding' : 'solid base. One more session/week = significantly faster results'}`,
+      type: perWeek >= 4 ? 'positive' : 'neutral',
+      icon: '💪',
+    })
+  }
+
+  return projections.slice(0, 3)
+}
+
 export function getAllDataForAI() {
   const vitals = vitalsStore.getRecent(7)
   const workouts = workoutsStore.getRecent(7)
   const finance = financeStore.getAll()
+  const profile = profileStore.get()
   return {
-    profile: profileStore.get(),
+    profile,
     isNewUser: vitals.length === 0 && workouts.length === 0 && finance.length === 0,
     vitals,
     workouts,
@@ -596,7 +710,7 @@ export function getAllDataForAI() {
     savingsRate: financeStore.getSavingsRate(),
     goals: goalsStore.getAll(),
     habits: habitsStore.getAll(),
-    tasks: tasksStore.getAll().filter(t => !t.completed).slice(0, 10),
+    commitments: tasksStore.getAll().filter(t => !t.completed).slice(0, 10),
     lifeScores: calculateLifeScores(),
     insights: generateInsights().slice(0, 5),
   }

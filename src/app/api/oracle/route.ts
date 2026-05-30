@@ -59,10 +59,13 @@ export async function POST(req: Request) {
 
     let dataSection = ''
     if (userData) {
+      const identityContext = userData.profile?.identity
+        ? `\n\nUSER'S IDENTITY VISION: "${userData.profile.identity}" — Every recommendation must connect to this vision. Help them become this person.`
+        : ''
       const newUserContext = userData.isNewUser
         ? `\n\nDAY 1 CONTEXT: This user just started. No historical data yet. Use their profile (name: ${userData.profile?.name ?? 'unknown'}, goal: "${userData.profile?.primaryGoal ?? 'not set'}") to give highly specific, actionable Day 1 guidance. Tell them exactly what to log first, why it matters, and what their first week should look like.`
         : ''
-      dataSection = `\n\n--- USER DATA ---\n${JSON.stringify(userData, null, 2)}\n---${newUserContext}`
+      dataSection = `\n\n--- USER DATA ---\n${JSON.stringify(userData, null, 2)}\n---${identityContext}${newUserContext}`
     }
 
     const messages: Anthropic.MessageParam[] = [

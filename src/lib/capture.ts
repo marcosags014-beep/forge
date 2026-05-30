@@ -21,12 +21,12 @@ export function parseCapture(raw: string): CaptureResult | null {
   const lower = text.toLowerCase()
 
   // ── Task ───────────────────────────────────────────────
-  const taskMatch = lower.match(/^(?:task|todo|add task|remind me to|i need to|need to|i have to|remember to)[:\s]+(.+)/i)
+  const taskMatch = lower.match(/^(?:task|todo|commit|commitment|add task|remind me to|i need to|need to|i have to|remember to|i will)[:\s]+(.+)/i)
   if (taskMatch) {
     const title = text.slice(taskMatch[0].length - taskMatch[1].length).trim()
     return {
       type: 'task',
-      preview: `Create task: "${title}"`,
+      preview: `Add commitment: "${title}"`,
       execute: () => tasksStore.save({ id: generateId(), title, priority: 'medium', completed: false }),
     }
   }
@@ -125,7 +125,7 @@ export function parseCapture(raw: string): CaptureResult | null {
 
 // Type emoji for display
 export const CAPTURE_EMOJI: Record<CaptureType, string> = {
-  task: '✓',
+  task: '📌',
   goal: '🎯',
   habit: '🔥',
   expense: '💸',

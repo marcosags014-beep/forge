@@ -93,7 +93,7 @@ function HabitsPanel() {
   )
 }
 
-/* ----- Tasks ----- */
+/* ----- Commitments (formerly Tasks) ----- */
 function TasksPanel() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [newTitle, setNewTitle] = useState('')
@@ -113,17 +113,16 @@ function TasksPanel() {
   const active = tasks.filter(t => !t.completed)
   const done = tasks.filter(t => t.completed)
 
-  const priorityColor = { high: 'text-red-400', medium: 'text-yellow-400', low: 'text-muted-foreground' }
   const priorityBg = { high: 'bg-red-500/10 border-red-500/20 text-red-400', medium: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400', low: 'bg-secondary text-muted-foreground' }
 
   return (
     <div className="space-y-4">
       <div className="forge-card space-y-3">
-        <span className="forge-label flex items-center gap-2"><ListTodo className="w-3.5 h-3.5" />Add Task</span>
+        <span className="forge-label flex items-center gap-2"><ListTodo className="w-3.5 h-3.5" />Add Commitment</span>
         <div className="flex gap-2">
           <input value={newTitle} onChange={e => setNewTitle(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addTask()}
-            placeholder="What needs to be done?"
+            placeholder="What did you commit to doing?"
             className="flex-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" />
         </div>
         <div className="flex items-center gap-3">
@@ -145,7 +144,7 @@ function TasksPanel() {
 
       {active.length > 0 && (
         <div className="forge-card">
-          <span className="forge-label mb-3 block">Active ({active.length})</span>
+          <span className="forge-label mb-3 block">Active commitments ({active.length})</span>
           <div className="space-y-2">
             {active.map(task => (
               <div key={task.id} className="flex items-start gap-3 group">
@@ -153,7 +152,7 @@ function TasksPanel() {
                   <Circle className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 </button>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm">{task.title}</span>
                     <Badge className={`text-[10px] py-0 ${priorityBg[task.priority]}`}>{task.priority}</Badge>
                   </div>
@@ -173,13 +172,21 @@ function TasksPanel() {
         </div>
       )}
 
+      {active.length === 0 && done.length === 0 && (
+        <div className="forge-card text-center py-8">
+          <ListTodo className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">No commitments yet.</p>
+          <p className="text-xs text-muted-foreground mt-1">A commitment is a promise to yourself — add one above.</p>
+        </div>
+      )}
+
       {done.length > 0 && (
         <div className="forge-card">
-          <span className="forge-label mb-3 block">Completed ({done.length})</span>
+          <span className="forge-label mb-3 block">Kept ({done.length})</span>
           <div className="space-y-2 max-h-40 overflow-y-auto scrollbar-hide">
             {done.slice(0, 10).map(task => (
               <div key={task.id} className="flex items-center gap-3">
-                <CheckCircle2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
                 <span className="text-sm text-muted-foreground line-through flex-1">{task.title}</span>
                 <button onClick={() => { tasksStore.delete(task.id); reload() }}
                   className="text-muted-foreground hover:text-red-400">
@@ -396,7 +403,7 @@ export default function MindPage() {
   const [tab, setTab] = useState<'habits' | 'tasks' | 'goals' | 'achievements'>('habits')
   const tabs = [
     { id: 'habits',       label: 'Habits',       icon: Zap },
-    { id: 'tasks',        label: 'Tasks',        icon: ListTodo },
+    { id: 'tasks',        label: 'Commitments',  icon: ListTodo },
     { id: 'goals',        label: 'Goals',        icon: Target },
     { id: 'achievements', label: 'Achievements', icon: Trophy },
   ] as const
@@ -408,10 +415,10 @@ export default function MindPage() {
         <h1 className="text-2xl md:text-3xl font-bold text-gradient">Mind</h1>
       </div>
 
-      <div className="flex gap-1 p-1 bg-secondary rounded-xl w-full md:w-fit mb-6 overflow-x-auto scrollbar-hide">
+      <div className="forge-tabs w-full md:w-fit mb-6 overflow-x-auto scrollbar-hide">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setTab(id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${tab === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+            className={`forge-tab ${tab === id ? 'forge-tab-active' : ''}`}>
             <Icon className="w-3.5 h-3.5" />{label}
           </button>
         ))}

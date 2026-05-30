@@ -231,38 +231,42 @@ export default function OraclePage() {
       {showUpgrade && <UpgradeModal used={oracleUsed} onClose={() => setShowUpgrade(false)} />}
 
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <div>
-          <p className="forge-label mb-0.5"><Sparkles className="w-3 h-3" />AI Intelligence Layer</p>
-          <h1 className="text-xl font-bold text-gradient-primary">Oracle</h1>
+      <div className="border-b border-border">
+        <div className="flex items-center justify-between px-6 pt-4 pb-3">
+          <div>
+            <p className="forge-label mb-0.5"><Sparkles className="w-3 h-3" />AI Intelligence Layer</p>
+            <h1 className="text-xl font-bold text-gradient-primary">Oracle</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            {isPro ? (
+              <span className="text-[10px] font-bold px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full">PRO</span>
+            ) : (
+              <button onClick={() => setShowUpgrade(true)}
+                className={`text-[10px] font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                  oracleUsed >= FREE_ORACLE_DAILY
+                    ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                    : oracleUsed >= FREE_ORACLE_DAILY * 0.7
+                    ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                    : 'bg-secondary text-muted-foreground border-border'
+                }`}>
+                {FREE_ORACLE_DAILY - oracleUsed} left today
+              </button>
+            )}
+            <Button variant="ghost" size="sm" onClick={clearChat} className="text-muted-foreground hover:text-red-400 gap-1 text-xs h-7">
+              <Trash2 className="w-3 h-3" />Clear
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          {isPro ? (
-            <span className="text-[10px] font-bold px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full">PRO</span>
-          ) : (
-            <button onClick={() => setShowUpgrade(true)}
-              className={`text-[10px] font-medium px-2.5 py-1 rounded-full border transition-colors ${
-                oracleUsed >= FREE_ORACLE_DAILY
-                  ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                  : oracleUsed >= FREE_ORACLE_DAILY * 0.7
-                  ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-                  : 'bg-secondary text-muted-foreground border-border'
-              }`}>
-              {FREE_ORACLE_DAILY - oracleUsed} left today
-            </button>
-          )}
-          {/* Agent selector */}
-          <div className="flex gap-1 p-1 bg-secondary rounded-lg">
+        {/* Agent selector — full width sub-row */}
+        <div className="px-4 pb-3 overflow-x-auto scrollbar-hide">
+          <div className="forge-tabs w-fit min-w-full">
             {AGENT_MODES.map(m => (
               <button key={m.id} onClick={() => setMode(m)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${mode.id === m.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                className={`forge-tab whitespace-nowrap flex-1 ${mode.id === m.id ? 'forge-tab-active' : ''}`}>
                 {m.label}
               </button>
             ))}
           </div>
-          <Button variant="ghost" size="sm" onClick={clearChat} className="text-muted-foreground hover:text-red-400 gap-1 text-xs">
-            <Trash2 className="w-3.5 h-3.5" />Clear
-          </Button>
         </div>
       </div>
 

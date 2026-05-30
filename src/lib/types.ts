@@ -138,8 +138,16 @@ export interface Achievement {
 export interface UserProfile {
   name: string
   primaryGoal: string
+  identity?: string   // "Who I want to become" — drives Oracle context
   setupComplete: boolean
   joinedAt: string
+}
+
+// ── Projection ──────────────────────────────────────────
+export interface Projection {
+  text: string
+  type: 'positive' | 'warning' | 'neutral'
+  icon: string
 }
 
 // ── Journal ─────────────────────────────────────────────

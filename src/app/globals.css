@@ -120,23 +120,37 @@
 
 @layer base {
   * { @apply border-border outline-ring/50; }
-  body { @apply bg-background text-foreground; }
+  body {
+    @apply bg-background text-foreground;
+    /* Subtle noise grain for depth */
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    background-attachment: fixed;
+  }
   html { @apply font-sans; }
+  /* Smooth all transitions on interactive elements */
+  button, a { transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
 }
 
 /* ── FORGE Utilities ─────────────────────────────────── */
 .forge-card {
   @apply bg-card border border-border rounded-2xl p-4;
-  box-shadow: 0 1px 3px oklch(0 0 0 / 40%), 0 4px 16px oklch(0 0 0 / 20%);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  box-shadow:
+    0 1px 3px oklch(0 0 0 / 50%),
+    0 4px 20px oklch(0 0 0 / 25%),
+    inset 0 1px 0 oklch(1 0 0 / 6%);      /* top-edge highlight */
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 .forge-card:hover {
-  border-color: oklch(1 0 0 / 13%);
-  box-shadow: 0 2px 6px oklch(0 0 0 / 50%), 0 8px 24px oklch(0 0 0 / 25%);
+  border-color: oklch(1 0 0 / 14%);
+  box-shadow:
+    0 2px 8px oklch(0 0 0 / 55%),
+    0 12px 32px oklch(0 0 0 / 28%),
+    inset 0 1px 0 oklch(1 0 0 / 9%);
 }
 
 .forge-label {
-  @apply text-[10px] uppercase tracking-widest text-muted-foreground font-medium flex items-center gap-1.5;
+  @apply text-[10px] uppercase tracking-widest text-muted-foreground font-semibold flex items-center gap-1.5;
+  letter-spacing: 0.1em;
 }
 
 .forge-value {
@@ -145,6 +159,30 @@
 
 .forge-input {
   @apply w-full bg-secondary border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all;
+  box-shadow: inset 0 1px 3px oklch(0 0 0 / 20%);
+}
+.forge-input:focus {
+  border-color: oklch(0.705 0.213 47.604 / 50%);
+  box-shadow: inset 0 1px 3px oklch(0 0 0 / 20%), 0 0 0 3px oklch(0.705 0.213 47.604 / 12%);
+}
+
+/* ── Segment control (tab switcher) ─────────────────── */
+.forge-tabs {
+  @apply flex gap-1 p-1 rounded-xl;
+  background: oklch(0 0 0 / 30%);
+  box-shadow: inset 0 1px 3px oklch(0 0 0 / 40%), inset 0 -1px 0 oklch(1 0 0 / 4%);
+}
+.forge-tab {
+  @apply flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all text-muted-foreground;
+}
+.forge-tab:hover:not(.forge-tab-active) {
+  @apply text-foreground;
+  background: oklch(1 0 0 / 4%);
+}
+.forge-tab-active {
+  @apply text-foreground;
+  background: oklch(1 0 0 / 8%);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 40%), inset 0 1px 0 oklch(1 0 0 / 10%);
 }
 
 /* ── Scrollbar ────────────────────────────────────────── */
@@ -198,16 +236,29 @@
 
 /* ── Text gradient ──────────────────────────────────── */
 .text-gradient {
-  background: linear-gradient(135deg, oklch(0.97 0 0) 0%, oklch(0.65 0.015 285) 100%);
+  background: linear-gradient(160deg, oklch(0.97 0 0) 0%, oklch(0.60 0.01 285) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 .text-gradient-primary {
-  background: linear-gradient(135deg, oklch(0.705 0.213 47.604) 0%, oklch(0.85 0.12 60) 100%);
+  background: linear-gradient(135deg, oklch(0.85 0.15 55) 0%, oklch(0.705 0.213 47.604) 60%, oklch(0.60 0.18 40) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* ── Stat number ────────────────────────────────────── */
+.forge-stat {
+  @apply text-4xl font-bold tabular-nums;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* ── Score pill ─────────────────────────────────────── */
+.forge-score-pill {
+  @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold;
+  box-shadow: 0 1px 4px oklch(0 0 0 / 30%);
 }
 
 /* ── Nav active indicator ───────────────────────────── */
