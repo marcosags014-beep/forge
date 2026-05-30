@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Settings, Download, Trash2, User, Shield, Bell, AlertTriangle, Watch } from 'lucide-react'
+import { Settings, Download, Trash2, User, Shield, Bell, AlertTriangle, Watch, Copy, Check, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { profileStore, vitalsStore, workoutsStore, nutritionStore, bodyStore, financeStore, goalsStore, habitsStore, tasksStore, journalStore } from '@/lib/store'
+import { profileStore, vitalsStore, workoutsStore, nutritionStore, bodyStore, financeStore, goalsStore, habitsStore, tasksStore, journalStore, getReferralCode, isProUser } from '@/lib/store'
 import type { UserProfile } from '@/lib/types'
 import { isNative, requestNotificationPermission, scheduleDailyVitalsReminder, cancelDailyReminder } from '@/lib/health'
+import Link from 'next/link'
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -13,6 +14,9 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [reminderOn, setReminderOn] = useState(false)
+  const [referralCode, setReferralCode] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [pro, setPro] = useState(false)
   const [stats, setStats] = useState({ vitals: 0, workouts: 0, transactions: 0, habits: 0, goals: 0, journal: 0 })
 
   useEffect(() => {
@@ -27,6 +31,8 @@ export default function SettingsPage() {
       goals:        goalsStore.getAll().length,
       journal:      journalStore.getAll().length,
     })
+    setReferralCode(getReferralCode())
+    setPro(isProUser())
   }, [])
 
   function saveProfile() {
@@ -85,7 +91,7 @@ export default function SettingsPage() {
     <div className="p-4 md:p-6 max-w-2xl mx-auto animate-in fade-in duration-300">
       <div className="mb-8">
         <p className="forge-label mb-1"><Settings className="w-3.5 h-3.5" />Configuration</p>
-        <h1 className="text-2xl md:text-3xl font-bold">Settings</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-gradient">Settings</h1>
       </div>
 
       {/* Profile */}
@@ -184,6 +190,54 @@ export default function SettingsPage() {
           </div>
           <div className="text-xs bg-primary/10 text-primary px-3 py-1.5 rounded-lg font-semibold">Dark</div>
         </div>
+      </Section>
+
+      {/* Pro / Referral */}
+      <Section title={pro ? 'Pro Status' : 'Upgrade to Pro'} icon={Sparkles}>
+        {pro ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-4 py-3 bg-primary/10 rounded-xl border border-primary/20">
+              <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
+              <span className="text-sm font-semibold text-primary">Pro — Active</span>
+            </div>
+            <div className="space-y-1">
+              <label className="forge-label">Your referral code</label>
+              <div className="flex gap-2">
+                <div className="forge-input flex-1 font-mono text-sm select-all">{referralCode}</div>
+                <Button size="sm" variant="outline" className="gap-1.5 flex-shrink-0"
+                  onClick={() => { navigator.clipboard.writeText(referralCode); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>
+                  {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Share with friends to earn free months.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Unlock unlimited Oracle queries, advanced insights, and priority support.
+            </p>
+            <Link href="/pricing">
+              <Button className="bg-primary text-primary-foreground gap-2 w-full">
+                <Sparkles className="w-4 h-4" />
+                Start 7-Day Free Trial
+              </Button>
+            </Link>
+            <div className="space-y-1">
+              <label className="forge-label">Your referral code</label>
+              <div className="flex gap-2">
+                <div className="forge-input flex-1 font-mono text-sm select-all">{referralCode}</div>
+                <Button size="sm" variant="outline" className="gap-1.5 flex-shrink-0"
+                  onClick={() => { navigator.clipboard.writeText(referralCode); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>
+                  {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Share with friends — both get a free month when they subscribe.</p>
+            </div>
+          </div>
+        )}
       </Section>
 
       {/* Danger zone */}

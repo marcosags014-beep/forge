@@ -405,7 +405,7 @@ export default function MindPage() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto animate-in fade-in duration-300">
       <div className="mb-8">
         <p className="forge-label mb-1">Mental OS</p>
-        <h1 className="text-2xl md:text-3xl font-bold">Mind</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-gradient">Mind</h1>
       </div>
 
       <div className="flex gap-1 p-1 bg-secondary rounded-xl w-full md:w-fit mb-6 overflow-x-auto scrollbar-hide">

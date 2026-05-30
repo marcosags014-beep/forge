@@ -229,7 +229,7 @@ export default function InsightsPage() {
     <div className="p-6 max-w-4xl mx-auto animate-in fade-in duration-300">
       <div className="mb-8">
         <p className="forge-label mb-1">Intelligence Layer</p>
-        <h1 className="text-3xl font-bold flex items-center gap-3">
+        <h1 className="text-3xl font-bold text-gradient flex items-center gap-3">
           <Lightbulb className="w-7 h-7 text-primary" />
           Insights
         </h1>

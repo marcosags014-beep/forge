@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Sidebar } from './sidebar'
 import { QuickLogFAB } from './quick-log-fab'
+import { BottomNav } from './bottom-nav'
 import { ErrorBoundary } from './error-boundary'
 import { Menu, Flame } from 'lucide-react'
 import Link from 'next/link'
@@ -49,12 +50,13 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
         <div className="w-9" /> {/* spacer */}
       </div>
 
-      <main className="md:ml-60 min-h-screen pt-14 md:pt-0">
+      <main className="md:ml-60 min-h-screen pt-14 md:pt-0 pb-20 md:pb-0">
         <ErrorBoundary>
           {children}
         </ErrorBoundary>
       </main>
 
+      <BottomNav />
       <QuickLogFAB />
     </>
   )

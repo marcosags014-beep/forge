@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Send, Sparkles, Trash2, User, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { chatStore, generateId, getAllDataForAI, profileStore } from '@/lib/store'
+import { chatStore, generateId, getAllDataForAI, profileStore, isProUser, getOracleUsage, incrementOracleUsage, FREE_ORACLE_DAILY } from '@/lib/store'
 import type { ChatMessage, UserProfile } from '@/lib/types'
+import Link from 'next/link'
 
 const AGENT_MODES = [
   { id: 'coach',   label: '🧠 Life Coach',  prompt: 'You are a high-performance life coach. Analyze the user\'s data across health, fitness, finance, and mindset. Give direct, actionable advice like a world-class coach would. No fluff.' },
@@ -98,18 +99,58 @@ function getDay1Prompts(profile: UserProfile | null): string[] {
   ]
 }
 
+function UpgradeModal({ used, onClose }: { used: number; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <div className="text-center mb-5">
+          <div className="w-14 h-14 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Sparkles className="w-7 h-7 text-primary" />
+          </div>
+          <h3 className="font-bold text-lg mb-1">Daily limit reached</h3>
+          <p className="text-sm text-muted-foreground">
+            You&apos;ve used {used}/{FREE_ORACLE_DAILY} free Oracle messages today.
+            Upgrade to Pro for unlimited access.
+          </p>
+        </div>
+        <div className="space-y-3 text-sm mb-5">
+          {['Unlimited Oracle messages', 'AI Morning Brief auto-generation', 'AI Weekly Performance Review', 'All future Pro features'].map(f => (
+            <div key={f} className="flex items-center gap-2.5">
+              <div className="w-4 h-4 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center flex-shrink-0">
+                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+              </div>
+              <span>{f}</span>
+            </div>
+          ))}
+        </div>
+        <Link href="/pricing" className="block w-full bg-primary text-primary-foreground text-center py-3 rounded-xl font-semibold text-sm hover:bg-primary/90 transition-colors mb-2">
+          Upgrade to Pro — €14.99/mo
+        </Link>
+        <button onClick={onClose} className="w-full text-xs text-muted-foreground hover:text-foreground py-2 transition-colors">
+          Continue tomorrow (resets at midnight)
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function OraclePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState(AGENT_MODES[0])
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [showUpgrade, setShowUpgrade] = useState(false)
+  const [oracleUsed, setOracleUsed] = useState(0)
+  const [isPro, setIsPro] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     setMessages(chatStore.getMessages())
     setProfile(profileStore.get())
+    setOracleUsed(getOracleUsage().count)
+    setIsPro(isProUser())
   }, [])
 
   useEffect(() => {
@@ -118,6 +159,15 @@ export default function OraclePage() {
 
   async function send() {
     if (!input.trim() || loading) return
+
+    // Check daily limit for free users
+    if (!isPro) {
+      const usage = getOracleUsage()
+      if (usage.count >= FREE_ORACLE_DAILY) {
+        setShowUpgrade(true)
+        return
+      }
+    }
 
     const userMsg: ChatMessage = {
       id: generateId(),
@@ -153,6 +203,11 @@ export default function OraclePage() {
       }
       chatStore.addMessage(assistantMsg)
       setMessages(prev => [...prev, assistantMsg])
+      // Track usage after successful response
+      if (!isPro) {
+        incrementOracleUsage()
+        setOracleUsed(prev => prev + 1)
+      }
     } catch {
       const errMsg: ChatMessage = {
         id: generateId(),
@@ -173,16 +228,29 @@ export default function OraclePage() {
 
   return (
     <div className="flex flex-col h-screen">
+      {showUpgrade && <UpgradeModal used={oracleUsed} onClose={() => setShowUpgrade(false)} />}
+
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border">
         <div>
-          <p className="forge-label mb-0.5">AI Intelligence Layer</p>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            Oracle
-          </h1>
+          <p className="forge-label mb-0.5"><Sparkles className="w-3 h-3" />AI Intelligence Layer</p>
+          <h1 className="text-xl font-bold text-gradient-primary">Oracle</h1>
         </div>
         <div className="flex items-center gap-3">
+          {isPro ? (
+            <span className="text-[10px] font-bold px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full">PRO</span>
+          ) : (
+            <button onClick={() => setShowUpgrade(true)}
+              className={`text-[10px] font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                oracleUsed >= FREE_ORACLE_DAILY
+                  ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                  : oracleUsed >= FREE_ORACLE_DAILY * 0.7
+                  ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                  : 'bg-secondary text-muted-foreground border-border'
+              }`}>
+              {FREE_ORACLE_DAILY - oracleUsed} left today
+            </button>
+          )}
           {/* Agent selector */}
           <div className="flex gap-1 p-1 bg-secondary rounded-lg">
             {AGENT_MODES.map(m => (
@@ -201,24 +269,28 @@ export default function OraclePage() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 scrollbar-hide">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-              <Sparkles className="w-8 h-8 text-primary" />
+          <div className="flex flex-col items-center justify-center h-full gap-5 text-center py-8">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-2xl animate-glow" />
+              <div className="relative w-20 h-20 rounded-2xl bg-primary/10 border border-primary/25 flex items-center justify-center"
+                style={{ boxShadow: '0 0 32px oklch(0.705 0.213 47.604 / 15%)' }}>
+                <Sparkles className="w-10 h-10 text-primary" />
+              </div>
             </div>
             <div>
-              <h3 className="font-semibold text-lg mb-1">
+              <h3 className="font-bold text-xl mb-1.5 text-gradient-primary">
                 {profile?.name ? `Ready for you, ${profile.name.split(' ')[0]}` : 'Oracle is ready'}
               </h3>
-              <p className="text-sm text-muted-foreground max-w-sm">
+              <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
                 {profile?.primaryGoal
                   ? `Your AI knows your goal: "${profile.primaryGoal}". Start here or ask anything.`
-                  : 'Your personal AI with full context of your vitals, fitness, finances, goals, and habits. Ask anything.'}
+                  : 'Your personal AI with full context of your vitals, fitness, finances, goals, and habits.'}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2 max-w-md w-full">
               {getDay1Prompts(profile).map(q => (
                 <button key={q} onClick={() => { setInput(q); textareaRef.current?.focus() }}
-                  className="text-left px-3 py-2 bg-secondary hover:bg-card border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground transition-all">
+                  className="text-left px-3 py-2.5 bg-secondary hover:bg-card border border-border hover:border-primary/20 rounded-xl text-xs text-muted-foreground hover:text-foreground transition-all leading-relaxed">
                   {q}
                 </button>
               ))}

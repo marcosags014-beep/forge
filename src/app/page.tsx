@@ -49,20 +49,24 @@ function DomainPill({ label, score, trend, icon: Icon, color, noData, href }: {
   const TrendIcon = trend === 'up' ? ArrowUp : trend === 'down' ? ArrowDown : Minus
   const displayColor = noData ? '#52525b' : color
   return (
-    <Link href={href} className="forge-card flex flex-col gap-1.5 py-3 hover:border-primary/30 transition-colors">
+    <Link href={href} className="forge-card flex flex-col gap-2 py-3 hover:border-primary/30 transition-all relative overflow-hidden group">
+      {/* Colored top accent */}
+      <div className="absolute top-0 left-0 right-0 h-0.5 rounded-t-2xl transition-opacity duration-300"
+        style={{ backgroundColor: displayColor, opacity: noData ? 0.2 : 0.7 }} />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <Icon className="w-3.5 h-3.5" style={{ color: displayColor }} />
+          <Icon className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" style={{ color: displayColor }} />
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
         </div>
         {noData
-          ? <span className="text-[9px] text-muted-foreground uppercase tracking-wider">Start →</span>
+          ? <span className="text-[9px] text-primary opacity-60 uppercase tracking-wider font-medium">Start →</span>
           : <TrendIcon className={`w-3 h-3 ${trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-muted-foreground'}`} />
         }
       </div>
-      <div className="font-bold text-xl" style={{ color: displayColor }}>{noData ? '—' : score}</div>
+      <div className="font-bold text-2xl tabular-nums" style={{ color: displayColor }}>{noData ? '—' : score}</div>
       <div className="h-1 bg-secondary rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${noData ? 0 : score}%`, backgroundColor: displayColor }} />
+        <div className="h-full rounded-full transition-all duration-1000"
+          style={{ width: `${noData ? 0 : score}%`, backgroundColor: displayColor, boxShadow: noData ? 'none' : `0 0 6px ${displayColor}66` }} />
       </div>
     </Link>
   )
@@ -190,12 +194,15 @@ export default function CommandCenter() {
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
+          <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1.5">
             {format(new Date(), "EEEE, MMMM d · yyyy")}
           </p>
-          <h1 className="text-3xl font-bold">Command Center</h1>
+          <h1 className="text-3xl font-bold text-gradient">Command Center</h1>
           {loginStreak > 1 && (
-            <p className="text-sm text-primary font-medium mt-1">{loginStreak} day streak 🔥</p>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <span className="text-sm font-medium text-primary">{loginStreak} day streak</span>
+              <span className="text-sm">🔥</span>
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -210,7 +217,11 @@ export default function CommandCenter() {
 
       {/* Hero: Life Score + AI Brief */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="forge-card flex flex-col items-center justify-center gap-4 py-8">
+        <div className="forge-card flex flex-col items-center justify-center gap-4 py-8 relative overflow-hidden">
+          {/* Subtle background glow */}
+          <div className="absolute inset-0 pointer-events-none" style={{
+            background: `radial-gradient(ellipse 60% 50% at 50% 60%, ${scores.overall >= 75 ? 'rgba(34,197,94,0.04)' : scores.overall >= 50 ? 'rgba(245,158,11,0.04)' : 'rgba(239,68,68,0.04)'} 0%, transparent 100%)`
+          }} />
           <LifeScoreRing score={scores.overall} call={call} />
           {!vital && (
             <Link href="/vitals" className="text-xs text-primary hover:underline">

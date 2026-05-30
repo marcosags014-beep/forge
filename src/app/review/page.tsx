@@ -138,7 +138,7 @@ export default function ReviewPage() {
       <div className="flex items-start justify-between mb-8">
         <div>
           <p className="forge-label mb-1">Performance Analytics</p>
-          <h1 className="text-3xl font-bold">Weekly Review</h1>
+          <h1 className="text-3xl font-bold text-gradient">Weekly Review</h1>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setWeekOffset(w => w - 1)} className="p-2 rounded-lg bg-secondary hover:bg-card border border-border transition-colors">

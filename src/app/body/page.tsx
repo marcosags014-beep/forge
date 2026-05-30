@@ -358,7 +358,7 @@ export default function BodyPage() {
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-8">
         <p className="forge-label mb-1">Physical Performance</p>
-        <h1 className="text-3xl font-bold">Body</h1>
+        <h1 className="text-3xl font-bold text-gradient">Body</h1>
       </div>
 
       <div className="flex gap-1 p-1 bg-secondary rounded-lg w-fit mb-6">

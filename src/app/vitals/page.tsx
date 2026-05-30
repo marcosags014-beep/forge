@@ -113,7 +113,7 @@ export default function VitalsPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="mb-8">
         <p className="forge-label mb-1">Health & Performance</p>
-        <h1 className="text-3xl font-bold">Vitals</h1>
+        <h1 className="text-3xl font-bold text-gradient">Vitals</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

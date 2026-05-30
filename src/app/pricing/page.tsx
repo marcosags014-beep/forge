@@ -1,8 +1,10 @@
 'use client'
 
-import { Flame, CheckCircle2, Sparkles, Heart, Dumbbell, TrendingUp, Target, ArrowRight, Star, Shield, Zap } from 'lucide-react'
+import { useState } from 'react'
+import { Flame, CheckCircle2, Sparkles, Heart, Dumbbell, TrendingUp, Target, ArrowRight, Star, Shield, Zap, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { getReferralCode } from '@/lib/store'
 
 const FREE_FEATURES = [
   'Vitals tracking (sleep, HRV, mood)',
@@ -32,6 +34,27 @@ const TESTIMONIALS = [
 ]
 
 export default function PricingPage() {
+  const [checkingOut, setCheckingOut] = useState(false)
+
+  async function startCheckout() {
+    setCheckingOut(true)
+    try {
+      const referral = typeof window !== 'undefined' ? getReferralCode() : ''
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referral }),
+      })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+      else alert('Checkout unavailable. Try again later.')
+    } catch {
+      alert('Network error. Try again later.')
+    } finally {
+      setCheckingOut(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Nav */}
@@ -150,12 +173,14 @@ export default function PricingPage() {
                 </li>
               ))}
             </ul>
-            <Link href="/setup">
-              <Button className="w-full bg-primary text-primary-foreground gap-2 shadow-lg shadow-primary/20">
-                <Zap className="w-4 h-4" />
-                Start Pro Free (14 days)
-              </Button>
-            </Link>
+            <Button onClick={startCheckout} disabled={checkingOut}
+              className="w-full bg-primary text-primary-foreground gap-2 shadow-lg shadow-primary/20">
+              {checkingOut
+                ? <><Loader2 className="w-4 h-4 animate-spin" />Redirecting…</>
+                : <><Zap className="w-4 h-4" />Start 7-Day Free Trial</>
+              }
+            </Button>
+            <p className="text-xs text-center text-muted-foreground">No charge for 7 days. Cancel anytime.</p>
           </div>
         </div>
 

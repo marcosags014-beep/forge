@@ -96,7 +96,7 @@ export default function WealthPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="mb-8">
         <p className="forge-label mb-1">Financial Intelligence</p>
-        <h1 className="text-3xl font-bold">Wealth</h1>
+        <h1 className="text-3xl font-bold text-gradient">Wealth</h1>
       </div>
 
       {/* Summary cards */}

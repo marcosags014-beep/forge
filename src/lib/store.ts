@@ -536,6 +536,51 @@ export function getHabitStreak(habit: Habit): number {
   return streak
 }
 
+// ── Pro status + Oracle usage ────────────────────────────
+export const FREE_ORACLE_DAILY = 10
+
+export function isProUser(): boolean {
+  try {
+    if (typeof localStorage === 'undefined') return false
+    const stored = localStorage.getItem('forge_pro')
+    if (!stored) return false
+    const parsed = JSON.parse(stored) as { until?: string; token?: string }
+    return !!parsed.until && new Date(parsed.until) > new Date()
+  } catch { return false }
+}
+
+export function setProUser(token: string, until: string) {
+  localStorage.setItem('forge_pro', JSON.stringify({ token, until }))
+}
+
+export function getOracleUsage(): { date: string; count: number } {
+  try {
+    const stored = localStorage.getItem('forge_oracle_daily')
+    if (stored) {
+      const parsed = JSON.parse(stored) as { date: string; count: number }
+      if (parsed.date === today()) return parsed
+    }
+  } catch {}
+  return { date: today(), count: 0 }
+}
+
+export function incrementOracleUsage() {
+  const usage = getOracleUsage()
+  localStorage.setItem('forge_oracle_daily', JSON.stringify({ date: today(), count: usage.count + 1 }))
+}
+
+export function getReferralCode(): string {
+  try {
+    const stored = localStorage.getItem('forge_referral')
+    if (stored) return stored
+    const profile = profileStore.get()
+    const base = (profile?.name ?? 'user').replace(/\s+/g, '').toLowerCase().slice(0, 8)
+    const code = `${base}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+    localStorage.setItem('forge_referral', code)
+    return code
+  } catch { return '' }
+}
+
 export function getAllDataForAI() {
   const vitals = vitalsStore.getRecent(7)
   const workouts = workoutsStore.getRecent(7)
