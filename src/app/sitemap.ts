@@ -22,10 +22,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/blog/quantified-self-app`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/for/athletes`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/for/founders`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
-    { url: `${base}/for/founders`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${base}/for/biohackers`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/privacy`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${base}/terms`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${base}/setup`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
   ]
 }
-// deploy trigger domingo, 31 de mayo de 2026, 19:16:44 CEST
