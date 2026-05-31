@@ -17,11 +17,11 @@ const FREE_FEATURES = [
 
 const PRO_FEATURES = [
   'Everything in Free',
-  'Unlimited Oracle AI messages',
-  'AI Morning Brief — daily proactive insight',
-  'AI Weekly Performance Review',
-  'Cross-domain intelligence (links sleep → money → goals)',
-  'Crisis detection & mental health alerts',
+  'Unlimited Oracle AI — ask anything, anytime',
+  'Daily Morning Brief — Oracle tells you what matters today before you start',
+  'Weekly AI Review — see the full picture of your week in 2 minutes',
+  'Cross-domain intelligence (sleep → spending → performance, connected)',
+  'Identity anchoring — every recommendation tied to your goals',
   'Life Score trend analysis',
   'Unlimited data history',
   'Export your data anytime',
@@ -29,9 +29,9 @@ const PRO_FEATURES = [
 ]
 
 const TESTIMONIALS = [
-  { name: 'Alex M.', role: 'Entrepreneur', text: '"Realised my worst business weeks coincide with my lowest HRV. Oracle helped me restructure my schedule around recovery. Revenue up 40%."' },
-  { name: 'Sarah K.', role: 'Athlete', text: '"I was overtraining without knowing it. FORGE\'s readiness score stopped me from a serious injury. Nothing else does this."' },
-  { name: 'Carlos R.', role: 'Medical student', text: '"Saved €800 in one month by seeing exactly where my stress spending was going. The finance + mood correlation blew my mind."' },
+  { name: 'Alex M.', role: 'Entrepreneur', text: '"I used to spend 40 minutes every morning planning across 4 apps. Now I open FORGE, see what Oracle flagged, and I\'m working in 60 seconds. It\'s the highest-leverage thing I\'ve added to my routine."' },
+  { name: 'Sarah K.', role: 'Athlete', text: '"I had no idea my worst training weeks correlated exactly with my worst sleep weeks. FORGE showed me the connection and I fixed the root cause instead of just pushing harder. Nothing else does this."' },
+  { name: 'Carlos R.', role: 'Medical student', text: '"Saved €800 in one month. Turns out my stress spending spiked every time my sleep score dropped below 70. Seeing health and finance in the same place changed everything."' },
 ]
 
 export default function PricingPage() {
@@ -82,14 +82,14 @@ export default function PricingPage() {
       <section className="px-6 md:px-16 py-20 text-center max-w-4xl mx-auto">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-full text-xs text-primary font-semibold mb-6">
           <Star className="w-3 h-3" />
-          The all-in-one accountability OS — nothing else does this
+          One dashboard. One AI. One clear answer every morning.
         </div>
         <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
-          Become who you<br />
-          <span className="text-primary">committed to be.</span>
+          Stop deciding.<br />
+          <span className="text-primary">Just do.</span>
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-          Health, fitness, finance, and goals — unified by AI that holds you accountable across every domain. Stop tracking. Start becoming.
+          FORGE tracks your health, body, money, and goals in one place — then tells you exactly what to focus on today. No more 4 separate apps. No more decision fatigue. Just the one move that actually moves you forward.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link href="/setup">
