@@ -56,6 +56,18 @@ const posts = [
     description: 'Most biohacker apps track one thing in isolation. The ideal biohacker stack in 2026 connects HRV, sleep, training, and finance — and uses AI to find the patterns.',
   },
   {
+    href: '/blog/ynab-alternative',
+    tag: 'Comparison',
+    title: 'Best YNAB Alternative in 2026 That Connects to Your Health',
+    description: 'YNAB cannot tell you that your overspending weeks follow your worst sleep weeks. FORGE tracks both — and connects them with AI.',
+  },
+  {
+    href: '/blog/habitica-alternative',
+    tag: 'Comparison',
+    title: 'Best Habitica Alternative in 2026 (If You Want More Than a Streak)',
+    description: 'Habitica optimises for logging. FORGE measures whether you actually keep your word to yourself. The Alignment Score is the difference.',
+  },
+  {
     href: '/blog/vs-notion-life-os',
     tag: 'Comparison',
     title: 'FORGE vs Notion as a Life OS (2026)',

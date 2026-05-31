@@ -15,6 +15,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/blog/habit-tracker-alternatives`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/blog/morning-routine-system`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/blog/personal-finance-tracker`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${base}/blog/ynab-alternative`, lastModified: now, changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${base}/blog/habitica-alternative`, lastModified: now, changeFrequency: 'monthly', priority: 0.9 },
     { url: `${base}/blog/biohacker-app`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/blog/vs-notion-life-os`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/blog/quantified-self-app`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
