@@ -12,6 +12,7 @@ import {
   getAlignmentScore,
 } from '@/lib/store'
 import type { VitalEntry, LifeScores, Task, Habit, Projection } from '@/lib/types'
+import DailyQuoteModal from '@/components/DailyQuoteModal'
 
 /* ── Life Score Ring ───────────────────────────────────── */
 function LifeScoreRing({ score, call }: { score: number; call: 'GREEN' | 'YELLOW' | 'RED' }) {
@@ -220,6 +221,8 @@ export default function CommandCenter() {
   const focusActions = getDailyFocus(scores, vital, habitPct)
 
   return (
+    <>
+    <DailyQuoteModal />
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5">
 
       {/* Header */}
@@ -452,5 +455,6 @@ export default function CommandCenter() {
       </div>
 
     </div>
+    </>
   )
 }
