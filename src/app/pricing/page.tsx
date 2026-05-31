@@ -633,7 +633,8 @@ export default function PricingPage() {
               <Link href="/setup" className="hover:text-foreground transition-colors">Get Started</Link>
               <Link href="/" className="hover:text-foreground transition-colors">Open App</Link>
               <a href="mailto:support@forge-life.app" className="hover:text-foreground transition-colors">Support</a>
-              <Link href="#pricing" className="hover:text-foreground transition-colors">Pricing</Link>
+              <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+              <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
             </div>
           </div>
           <div className="mt-6 pt-6 border-t border-border flex flex-col md:flex-row items-start md:items-center justify-between gap-2">

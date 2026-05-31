@@ -55,6 +55,18 @@ const posts = [
     title: 'The Best Biohacker App in 2026 (That Actually Connects Your Data)',
     description: 'Most biohacker apps track one thing in isolation. The ideal biohacker stack in 2026 connects HRV, sleep, training, and finance — and uses AI to find the patterns.',
   },
+  {
+    href: '/blog/vs-notion-life-os',
+    tag: 'Comparison',
+    title: 'FORGE vs Notion as a Life OS (2026)',
+    description: 'Notion is a canvas. FORGE is an intelligence system. The difference is whether the system does the thinking — or you do.',
+  },
+  {
+    href: '/blog/quantified-self-app',
+    tag: 'Systems',
+    title: 'The Best Quantified Self App in 2026 (Cross-Domain AI)',
+    description: 'The quantified self community has more data than ever and less synthesis than ever. The missing layer: cross-domain AI that connects your metrics.',
+  },
 ]
 
 export default function BlogIndex() {
