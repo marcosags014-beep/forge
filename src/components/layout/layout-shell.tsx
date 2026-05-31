@@ -10,7 +10,7 @@ import { Menu, Flame } from 'lucide-react'
 import Link from 'next/link'
 import { profileStore } from '@/lib/store'
 
-const NO_SIDEBAR = ['/setup', '/pricing']
+const NO_SIDEBAR = ['/setup', '/pricing', '/blog', '/for/', '/privacy', '/terms', '/about']
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   const path = usePathname()
