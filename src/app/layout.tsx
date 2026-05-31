@@ -8,20 +8,26 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'FORGE — Life OS',
-  description: 'The all-in-one life OS for people with big ambitions. Track health, fitness, finances, and goals — powered by AI.',
+  title: 'FORGE — Stop Deciding. Just Do.',
+  description: 'One dashboard for health, body, money, and goals. The AI tells you what to focus on today. Free. No account. Data stays on your device.',
   manifest: '/manifest.json',
+  keywords: ['life os', 'accountability app', 'habit tracker', 'hrv tracking', 'personal finance app', 'goal tracker', 'decision fatigue', 'alignment score'],
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'FORGE' },
   openGraph: {
-    title: 'FORGE — Life OS',
-    description: 'Health · Fitness · Finance · Goals — unified by AI. The only app that sees the connections between every domain of your life.',
+    title: 'FORGE — Stop Deciding. Just Do.',
+    description: 'One dashboard for health, body, money, and goals. AI tells you what to focus on. You just execute.',
     type: 'website',
     siteName: 'FORGE',
+    url: 'https://forge-five-flax.vercel.app',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FORGE — Life OS',
-    description: 'Health · Fitness · Finance · Goals — unified by AI.',
+    title: 'FORGE — Stop Deciding. Just Do.',
+    description: 'One dashboard for health, body, money, and goals. AI tells you what to focus on. Free.',
+    creator: '@forgelifeos',
+  },
+  alternates: {
+    canonical: 'https://forge-five-flax.vercel.app',
   },
 }
 
