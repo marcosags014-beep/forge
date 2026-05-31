@@ -28,3 +28,4 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/setup`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
   ]
 }
+// deploy trigger domingo, 31 de mayo de 2026, 19:16:44 CEST
