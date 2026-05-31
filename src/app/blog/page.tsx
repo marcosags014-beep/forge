@@ -43,6 +43,12 @@ const posts = [
     title: 'How to Build a Morning Routine That Actually Works',
     description: 'Most morning routines are really morning planning sessions. Here\'s the system that gives you a clear answer in 90 seconds.',
   },
+  {
+    href: '/blog/personal-finance-tracker',
+    tag: 'Wealth',
+    title: 'The Personal Finance Tracker That Connects to Your Health',
+    description: 'Your worst spending weeks follow your lowest sleep weeks. FORGE shows you the connection — and breaks the cycle.',
+  },
 ]
 
 export default function BlogIndex() {
