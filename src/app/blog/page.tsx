@@ -49,6 +49,12 @@ const posts = [
     title: 'The Personal Finance Tracker That Connects to Your Health',
     description: 'Your worst spending weeks follow your lowest sleep weeks. FORGE shows you the connection — and breaks the cycle.',
   },
+  {
+    href: '/blog/biohacker-app',
+    tag: 'Performance',
+    title: 'The Best Biohacker App in 2026 (That Actually Connects Your Data)',
+    description: 'Most biohacker apps track one thing in isolation. The ideal biohacker stack in 2026 connects HRV, sleep, training, and finance — and uses AI to find the patterns.',
+  },
 ]
 
 export default function BlogIndex() {

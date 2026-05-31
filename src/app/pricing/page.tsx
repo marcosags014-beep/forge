@@ -119,6 +119,53 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   )
 }
 
+/* ─── Email capture ────────────────────────────────────────────── */
+function EmailCapture({ source }: { source: string }) {
+  const [email, setEmail] = useState('')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!email) return
+    setStatus('loading')
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source }),
+      })
+      setStatus(res.ok ? 'done' : 'error')
+    } catch {
+      setStatus('error')
+    }
+  }
+
+  if (status === 'done') {
+    return (
+      <div className="flex items-center justify-center gap-2 text-sm text-primary">
+        <CheckCircle2 className="w-4 h-4" />
+        <span>You&apos;re on the list. Talk soon.</span>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={submit} className="flex gap-2 max-w-md mx-auto">
+      <input
+        type="email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder="your@email.com"
+        required
+        className="flex-1 bg-card border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+      />
+      <Button type="submit" disabled={status === 'loading'} className="bg-primary text-primary-foreground px-5">
+        {status === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Join'}
+      </Button>
+    </form>
+  )
+}
+
 /* ─── Page ────────────────────────────────────────────────────── */
 export default function PricingPage() {
   const [plan, setPlan] = useState<'monthly' | 'annual'>('annual')
@@ -553,6 +600,18 @@ export default function PricingPage() {
           <p className="text-xs text-muted-foreground mt-4">
             Free forever tier available. Pro from €8.25/month billed annually.
           </p>
+        </div>
+      </section>
+
+      {/* Email capture — for visitors not ready to commit */}
+      <section className="px-6 md:px-16 py-16 border-t border-border bg-card/20">
+        <div className="max-w-xl mx-auto text-center">
+          <p className="text-xs text-primary uppercase tracking-widest font-semibold mb-3">Not ready to start yet?</p>
+          <h2 className="text-xl font-bold mb-2">Get the FORGE weekly brief.</h2>
+          <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+            One email per week. Performance frameworks, cross-domain insights, and system updates. No spam. Unsubscribe anytime.
+          </p>
+          <EmailCapture source="pricing-footer" />
         </div>
       </section>
 
