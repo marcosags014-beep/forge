@@ -31,6 +31,18 @@ const posts = [
     title: 'HRV: The Metric That Connects Sleep, Money, and Performance',
     description: 'Your HRV predicts not just your workout — but your spending, mood, and decision quality.',
   },
+  {
+    href: '/blog/habit-tracker-alternatives',
+    tag: 'Accountability',
+    title: 'The Best Habit Tracker Alternatives in 2026',
+    description: 'Traditional habit trackers measure consistency of logging. Not consistency of doing. Here\'s what the difference costs you.',
+  },
+  {
+    href: '/blog/morning-routine-system',
+    tag: 'Productivity',
+    title: 'How to Build a Morning Routine That Actually Works',
+    description: 'Most morning routines are really morning planning sessions. Here\'s the system that gives you a clear answer in 90 seconds.',
+  },
 ]
 
 export default function BlogIndex() {
