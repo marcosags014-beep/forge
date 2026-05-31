@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { getReferralCode } from '@/lib/store'
+import { track } from '@vercel/analytics'
 
 /* ─── Feature lists ──────────────────────────────────────────── */
 const FREE_FEATURES = [
@@ -178,6 +179,7 @@ export default function PricingPage() {
   }
 
   async function startCheckout() {
+    track('checkout_started', { plan })
     setCheckingOut(true)
     try {
       const referral = typeof window !== 'undefined' ? getReferralCode() : ''
@@ -253,7 +255,7 @@ export default function PricingPage() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link href="/setup">
+          <Link href="/setup" onClick={() => track('cta_clicked', { location: 'hero' })}>
             <Button className="bg-primary text-primary-foreground px-8 py-6 text-base gap-2 shadow-lg shadow-primary/25">
               <Flame className="w-5 h-5" />
               Get Started Free
@@ -439,7 +441,7 @@ export default function PricingPage() {
                 </li>
               ))}
             </ul>
-            <Link href="/setup" className="block">
+            <Link href="/setup" className="block" onClick={() => track('cta_clicked', { location: 'pricing_free' })}>
               <Button variant="outline" className="w-full">Start Free — No Card</Button>
             </Link>
           </div>

@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Flame, Heart, Dumbbell, TrendingUp, Target, ChevronRight, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { profileStore, vitalsStore, habitsStore, goalsStore, generateId, today } from '@/lib/store'
+import { track } from '@vercel/analytics'
 
 const FOCUS_OPTIONS = [
   { id: 'health',  label: 'Health',   icon: Heart,      desc: 'Sleep, HRV, recovery',       color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20' },
@@ -42,8 +43,16 @@ export default function SetupPage() {
   const [financialGoal, setFinancialGoal] = useState('')
   const TOTAL = 4
 
+  useEffect(() => { track('setup_started') }, [])
+
   // Step mapping: 1=Name+Focus, 2=Vitals, 3=Habits, 4=Oracle
-  function next() { setStep(s => Math.min(s + 1, TOTAL)) }
+  function next() {
+    const nextStep = Math.min(step + 1, TOTAL)
+    const stepNames: Record<number, string> = { 2: 'vitals', 3: 'habits', 4: 'oracle' }
+    track('setup_step_completed', { step, focus, hasWearable: step === 2 ? hasWearable : undefined })
+    if (stepNames[nextStep]) track(`setup_reached_${stepNames[nextStep]}`)
+    setStep(nextStep)
+  }
 
   function finish() {
     // Save profile with identity vision
@@ -71,6 +80,7 @@ export default function SetupPage() {
       })
     }
 
+    track('setup_completed', { focus, habitCount: habits.filter(Boolean).length, hasWearable })
     router.push('/')
   }
 
