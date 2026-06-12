@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ArticleJsonLd } from '@/components/JsonLd'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
@@ -14,7 +15,14 @@ export const metadata: Metadata = {
 
 export default function HabitTrackerAlternativesPage() {
   return (
-    <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
+    <>
+      <ArticleJsonLd
+        title="The Best Habit Tracker Alternatives in 2026 | FORGE"
+        description="Traditional habit trackers measure consistency of logging. Not consistency of doing. Here is what the difference costs you — and what to use instead."
+        url="https://forge-five-flax.vercel.app/blog/habit-tracker-alternatives"
+        datePublished="2026-01-01"
+      />
+      <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
       <header className="mb-10">
         <p className="text-sm text-orange-400 font-medium mb-3">Mind · Accountability</p>
         <h1 className="text-3xl font-bold text-white leading-tight mb-4">
@@ -161,5 +169,6 @@ export default function HabitTrackerAlternativesPage() {
         </div>
       </footer>
     </article>
+    </>
   )
 }

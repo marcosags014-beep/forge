@@ -158,3 +158,15 @@ export interface JournalEntry {
   content: string
   mood?: number
 }
+
+export type TimelineCategory = 'meal' | 'workout' | 'stimulant' | 'note' | 'energy'
+
+export interface TimelineEntry {
+  id: string
+  date: string       // YYYY-MM-DD
+  time: string       // HH:MM (24h)
+  category: TimelineCategory
+  title: string
+  detail?: string
+  energy?: number    // 1-10 for energy check-ins
+}

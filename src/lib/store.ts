@@ -1,7 +1,7 @@
 import type {
   VitalEntry, WorkoutEntry, NutritionEntry, BodyMetric,
   Transaction, Goal, Habit, Task, ChatMessage,
-  LifeScores, InsightCard, Achievement, UserProfile, JournalEntry, Projection
+  LifeScores, InsightCard, Achievement, UserProfile, JournalEntry, Projection, TimelineEntry
 } from './types'
 
 // ── Core store helpers ───────────────────────────────────
@@ -15,7 +15,18 @@ function getStore<T>(key: string): T[] {
 
 function setStore<T>(key: string, data: T[]): void {
   if (typeof window === 'undefined') return
-  localStorage.setItem(`forge_${key}`, JSON.stringify(data))
+  try {
+    localStorage.setItem(`forge_${key}`, JSON.stringify(data))
+    import('./sync').then(m => m.syncKey(key)).catch(() => {})
+  } catch (e) {
+    // QuotaExceededError — trim by 25% and retry once
+    if (e instanceof Error && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+      try {
+        const trimmed = data.slice(0, Math.max(1, Math.floor(data.length * 0.75)))
+        localStorage.setItem(`forge_${key}`, JSON.stringify(trimmed))
+      } catch { /* storage full, silently drop */ }
+    }
+  }
 }
 
 function getOne<T>(key: string): T | null {
@@ -28,7 +39,10 @@ function getOne<T>(key: string): T | null {
 
 function setOne<T>(key: string, data: T): void {
   if (typeof window === 'undefined') return
-  localStorage.setItem(`forge_${key}`, JSON.stringify(data))
+  try {
+    localStorage.setItem(`forge_${key}`, JSON.stringify(data))
+    import('./sync').then(m => m.syncKey(key)).catch(() => {})
+  } catch { /* storage full, silently drop */ }
 }
 
 // ── Domain stores ────────────────────────────────────────
@@ -36,6 +50,7 @@ const CAP = 365
 
 export const vitalsStore = {
   getAll: () => getStore<VitalEntry>('vitals'),
+  delete: (id: string) => setStore('vitals', getStore<VitalEntry>('vitals').filter(v => v.id !== id)),
   save: (entry: VitalEntry) => {
     const all = getStore<VitalEntry>('vitals')
     const idx = all.findIndex(e => e.date === entry.date)
@@ -49,6 +64,7 @@ export const vitalsStore = {
 
 export const workoutsStore = {
   getAll: () => getStore<WorkoutEntry>('workouts'),
+  delete: (id: string) => setStore('workouts', getStore<WorkoutEntry>('workouts').filter(w => w.id !== id)),
   save: (entry: WorkoutEntry) => {
     const all = getStore<WorkoutEntry>('workouts')
     all.unshift(entry)
@@ -88,6 +104,7 @@ export const financeStore = {
     if (all.length > CAP) all.length = CAP
     setStore('finance', all)
   },
+  delete: (id: string) => setStore('finance', getStore<Transaction>('finance').filter(t => t.id !== id)),
   getBalance: () =>
     getStore<Transaction>('finance').reduce(
       (sum, tx) => tx.type === 'income' ? sum + tx.amount : sum - tx.amount, 0
@@ -188,6 +205,7 @@ export const chatStore = {
 
 export const journalStore = {
   getAll: () => getStore<JournalEntry>('journal'),
+  delete: (id: string) => setStore('journal', getStore<JournalEntry>('journal').filter(j => j.id !== id)),
   save: (entry: JournalEntry) => {
     const all = getStore<JournalEntry>('journal')
     const idx = all.findIndex(e => e.date === entry.date)
@@ -196,6 +214,20 @@ export const journalStore = {
     setStore('journal', all)
   },
   getLast: () => getStore<JournalEntry>('journal')[0] ?? null,
+}
+
+export const timelineStore = {
+  getForDate: (date: string) =>
+    getStore<TimelineEntry>('timeline')
+      .filter(e => e.date === date)
+      .sort((a, b) => a.time.localeCompare(b.time)),
+  save: (entry: TimelineEntry) => {
+    const all = getStore<TimelineEntry>('timeline')
+    const idx = all.findIndex(e => e.id === entry.id)
+    if (idx >= 0) all[idx] = entry; else all.push(entry)
+    setStore('timeline', all)
+  },
+  delete: (id: string) => setStore('timeline', getStore<TimelineEntry>('timeline').filter(e => e.id !== id)),
 }
 
 export const profileStore = {
@@ -621,6 +653,42 @@ export function getReferralCode(): string {
   } catch { return '' }
 }
 
+/**
+ * trackReferral — reads ?ref=CODE from the current URL and stores it in
+ * localStorage as `forge_referred_by`. Call this on app load (e.g. in a
+ * client component that mounts once).
+ */
+export function trackReferral(): void {
+  if (typeof window === 'undefined') return
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const ref = params.get('ref')
+    if (ref && ref.trim()) {
+      localStorage.setItem('forge_referred_by', ref.trim())
+    }
+  } catch { /* silently ignore */ }
+}
+
+/**
+ * logReferralOnSetupComplete — call after the user finishes setup to log
+ * that the referred user has completed onboarding.
+ */
+export function logReferralOnSetupComplete(): void {
+  if (typeof window === 'undefined') return
+  try {
+    const referredBy = localStorage.getItem('forge_referred_by')
+    if (referredBy) {
+      // Track in a simple counter list so we can later award Pro months
+      const raw = localStorage.getItem('forge_referral_completions')
+      const completions: string[] = raw ? JSON.parse(raw) : []
+      if (!completions.includes(referredBy)) {
+        completions.push(referredBy)
+        localStorage.setItem('forge_referral_completions', JSON.stringify(completions))
+      }
+    }
+  } catch { /* silently ignore */ }
+}
+
 export function getProjections(): Projection[] {
   const projections: Projection[] = []
   const todayStr = today()
@@ -753,6 +821,7 @@ export function getAllDataForAI() {
     habits: habitsStore.getAll(),
     commitments: tasksStore.getAll().filter(t => !t.completed).slice(0, 10),
     overdueCommitments: tasksStore.getOverdue().map(t => t.title),
+    lastJournalEntry: journalStore.getLast(),
     alignment,
     lifeScores: calculateLifeScores(),
     insights: generateInsights().slice(0, 5),

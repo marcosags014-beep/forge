@@ -1,4 +1,4 @@
-const CACHE = 'forge-v1'
+const CACHE = 'forge-v3'
 const SHELL = [
   '/',
   '/vitals',
@@ -9,6 +9,7 @@ const SHELL = [
   '/insights',
   '/review',
   '/journal',
+  '/settings',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',

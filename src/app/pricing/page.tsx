@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { getReferralCode } from '@/lib/store'
 import { track } from '@vercel/analytics'
+import { SoftwareJsonLd } from '@/components/JsonLd'
 
 /* ─── Feature lists ──────────────────────────────────────────── */
 const FREE_FEATURES = [
@@ -42,7 +43,7 @@ const FAQS = [
   },
   {
     q: 'What happens if I clear my browser or switch devices?',
-    a: 'Your data lives in your browser. Clearing site data or switching devices will clear it. We recommend using the Export feature (Pro) to back up regularly. A cloud-sync option with end-to-end encryption is on our roadmap.',
+    a: 'Your data lives in your browser by default. You can enable Cloud Sync (Settings → Cloud Sync) to back up securely to your account — free with a FORGE account. This also lets you access your data across multiple devices. Without sync enabled, clearing site data will clear your local data, so we recommend enabling cloud backup.',
   },
   {
     q: 'How does the 7-day free trial work?',
@@ -206,6 +207,7 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <SoftwareJsonLd />
 
       {/* Toast */}
       {toastMsg && (
@@ -528,8 +530,8 @@ export default function PricingPage() {
               },
               {
                 icon: RefreshCw,
-                title: 'Browser limitation: back up regularly',
-                desc: 'Because data lives in your browser, clearing site data or switching devices will clear it. We recommend weekly exports as backup. Cloud sync with end-to-end encryption is on our roadmap.',
+                title: 'Cloud sync — free with account',
+                desc: 'Enable Cloud Sync in Settings to automatically back up your data to your FORGE account. Works across devices. Without sync, data lives in your browser only — enable backup via Settings → Cloud Sync.',
               },
             ].map(({ icon: Icon, title, desc }) => (
               <div key={title} className="forge-card flex gap-4">

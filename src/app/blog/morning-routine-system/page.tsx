@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ArticleJsonLd } from '@/components/JsonLd'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
@@ -14,7 +15,14 @@ export const metadata: Metadata = {
 
 export default function MorningRoutineSystemPage() {
   return (
-    <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
+    <>
+      <ArticleJsonLd
+        title="How to Build a Morning Routine That Actually Works | FORGE"
+        description="Most morning routines are really morning planning sessions. Here is the system that gives you a clear answer in 90 seconds — so you can execute instead of decide."
+        url="https://forge-five-flax.vercel.app/blog/morning-routine-system"
+        datePublished="2026-01-01"
+      />
+      <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
       <header className="mb-10">
         <p className="text-sm text-orange-400 font-medium mb-3">Mind · Productivity</p>
         <h1 className="text-3xl font-bold text-white leading-tight mb-4">
@@ -181,5 +189,6 @@ export default function MorningRoutineSystemPage() {
         </div>
       </footer>
     </article>
+    </>
   )
 }

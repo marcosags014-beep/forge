@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { Plus, TrendingUp, TrendingDown, DollarSign, Save, Rocket } from 'lucide-react'
+import { Plus, TrendingUp, TrendingDown, DollarSign, Save, Rocket, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, AreaChart, Area, CartesianGrid } from 'recharts'
 import { financeStore, generateId, today } from '@/lib/store'
@@ -211,21 +211,35 @@ export default function WealthPage() {
       </div>
 
       {/* Transaction history */}
+      {transactions.length === 0 && (
+        <div className="forge-card mb-6 flex flex-col items-center justify-center text-center py-10">
+          <div className="w-10 h-10 text-muted-foreground/30 mb-3 text-4xl">€</div>
+          <p className="font-semibold text-sm mb-1.5">No transactions yet</p>
+          <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">Add your first income or expense above. Cash flow charts and spending breakdowns appear once you start tracking.</p>
+        </div>
+      )}
       {transactions.length > 0 && (
         <div className="forge-card mb-6">
           <div className="forge-label mb-4">Recent Transactions</div>
           <div className="space-y-2 max-h-80 overflow-y-auto scrollbar-hide">
             {transactions.slice(0, 20).map(tx => (
-              <div key={tx.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+              <div key={tx.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 group">
                 <div className="flex items-center gap-3">
-                  <div className={`w-2 h-2 rounded-full ${tx.type === 'income' ? 'bg-green-400' : 'bg-red-400'}`} />
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${tx.type === 'income' ? 'bg-green-400' : 'bg-red-400'}`} />
                   <div>
                     <div className="text-sm font-medium">{tx.description}</div>
                     <div className="text-xs text-muted-foreground">{tx.category} · {format(new Date(tx.date), 'MMM d')}</div>
                   </div>
                 </div>
-                <div className={`text-sm font-semibold ${tx.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
-                  {tx.type === 'income' ? '+' : '-'}€{tx.amount.toFixed(2)}
+                <div className="flex items-center gap-3">
+                  <span className={`text-sm font-semibold ${tx.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
+                    {tx.type === 'income' ? '+' : '-'}€{tx.amount.toFixed(2)}
+                  </span>
+                  <button
+                    onClick={() => { financeStore.delete(tx.id); setTransactions(financeStore.getAll()) }}
+                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             ))}

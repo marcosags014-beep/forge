@@ -281,6 +281,10 @@
 }
 .animate-slide-up { animation: forge-slide-up 0.35s cubic-bezier(0.22,1,0.36,1) both; }
 
+/* ── iPhone safe area ───────────────────────────────── */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+
 /* ── Mobile sidebar overlay ─────────────────────────── */
 .sidebar-overlay {
   position: fixed;

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ArticleJsonLd } from '@/components/JsonLd'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
@@ -14,7 +15,14 @@ export const metadata: Metadata = {
 
 export default function PersonalFinanceTrackerPage() {
   return (
-    <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
+    <>
+      <ArticleJsonLd
+        title="The Personal Finance Tracker That Connects to Your Health | FORGE"
+        description="Your worst spending weeks follow your lowest sleep weeks. FORGE shows you the connection — and breaks the cycle with cross-domain AI."
+        url="https://forge-five-flax.vercel.app/blog/personal-finance-tracker"
+        datePublished="2026-01-01"
+      />
+      <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
       <header className="mb-10">
         <p className="text-sm text-orange-400 font-medium mb-3">Wealth · Behaviour</p>
         <h1 className="text-3xl font-bold text-white leading-tight mb-4">
@@ -160,5 +168,6 @@ export default function PersonalFinanceTrackerPage() {
         </div>
       </footer>
     </article>
+    </>
   )
 }

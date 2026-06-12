@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ArticleJsonLd } from '@/components/JsonLd'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
@@ -14,7 +15,14 @@ export const metadata: Metadata = {
 
 export default function HabiticaAlternativePage() {
   return (
-    <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
+    <>
+      <ArticleJsonLd
+        title="Best Habitica Alternative in 2026 (If You Want More Than a Streak) | FORGE"
+        description="Habitica optimises for logging. FORGE measures whether you actually keep your word to yourself. The Alignment Score is the difference."
+        url="https://forge-five-flax.vercel.app/blog/habitica-alternative"
+        datePublished="2026-01-01"
+      />
+      <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
       <header className="mb-10">
         <p className="text-sm text-orange-400 font-medium mb-3">Accountability · Comparison</p>
         <h1 className="text-3xl font-bold text-white leading-tight mb-4">
@@ -148,11 +156,13 @@ export default function HabiticaAlternativePage() {
       <footer className="mt-12 pt-8 border-t border-zinc-800">
         <p className="text-zinc-500 text-sm mb-3">Related:</p>
         <div className="flex gap-4 flex-wrap">
+          <Link href="/vs/habitica" className="text-orange-400 hover:text-orange-300 text-sm">FORGE vs Habitica — Full Comparison</Link>
           <Link href="/blog/habit-tracker-alternatives" className="text-orange-400 hover:text-orange-300 text-sm">Habit Tracker Alternatives</Link>
           <Link href="/blog/alignment-score" className="text-orange-400 hover:text-orange-300 text-sm">The Alignment Score</Link>
           <Link href="/blog/decision-fatigue" className="text-orange-400 hover:text-orange-300 text-sm">Decision Fatigue</Link>
         </div>
       </footer>
     </article>
+    </>
   )
 }

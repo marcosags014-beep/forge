@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { format } from 'date-fns'
-import { CheckCircle2, Circle, ArrowUp, ArrowDown, Minus, Plus, RefreshCw, Zap, Heart, Dumbbell, TrendingUp, Brain, Share2, Sparkles, ChevronRight } from 'lucide-react'
+import { CheckCircle2, Circle, ArrowUp, ArrowDown, Minus, Plus, RefreshCw, Zap, Heart, Dumbbell, TrendingUp, Brain, Share2, Sparkles, ChevronRight, Activity, BookOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import {
@@ -36,6 +36,36 @@ function LifeScoreRing({ score, call }: { score: number; call: 'GREEN' | 'YELLOW
           call === 'GREEN' ? 'bg-green-500/15 text-green-400' :
           call === 'YELLOW' ? 'bg-yellow-500/15 text-yellow-400' : 'bg-red-500/15 text-red-400'
         }`}>{call}</div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Marketing Life Score Ring (static, animated) ──────── */
+function MarketingScoreRing({ score = 78 }: { score?: number }) {
+  const r = 64
+  const circ = 2 * Math.PI * r
+  const [animated, setAnimated] = useState(0)
+
+  useEffect(() => {
+    const t = setTimeout(() => setAnimated(score), 400)
+    return () => clearTimeout(t)
+  }, [score])
+
+  const offset = circ - (animated / 100) * circ
+  const color = '#22c55e'
+
+  return (
+    <div className="relative flex items-center justify-center w-40 h-40 flex-shrink-0">
+      <svg width="160" height="160" className="-rotate-90">
+        <circle cx="80" cy="80" r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="12" />
+        <circle cx="80" cy="80" r={r} fill="none" stroke={color} strokeWidth="12"
+          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ filter: 'drop-shadow(0 0 8px rgba(34,197,94,0.6))', transition: 'stroke-dashoffset 1.4s cubic-bezier(.4,0,.2,1)' }} />
+      </svg>
+      <div className="absolute text-center select-none">
+        <div className="text-4xl font-black tabular-nums leading-none" style={{ color }}>{score}</div>
+        <div className="text-[10px] font-bold mt-1 px-2 py-0.5 rounded-full inline-block bg-green-500/15 text-green-400">LIFE SCORE</div>
       </div>
     </div>
   )
@@ -114,8 +144,205 @@ function getDailyFocus(scores: LifeScores, vital: VitalEntry | null, habitPct: n
   return actions.sort((a, b) => b.priority - a.priority).slice(0, 3).map(({ priority: _p, ...rest }) => rest)
 }
 
-/* ── Page ──────────────────────────────────────────────── */
-export default function CommandCenter() {
+/* ── Marketing Landing Page ────────────────────────────── */
+const MODULES = [
+  { icon: Heart,      color: '#22c55e', label: 'Health & Vitals',  desc: 'HRV, sleep, energy, readiness — your body in numbers.' },
+  { icon: Dumbbell,   color: '#f97316', label: 'Body',             desc: 'Workouts, nutrition, and body composition tracking.' },
+  { icon: TrendingUp, color: '#f59e0b', label: 'Wealth',           desc: 'Income, expenses, and savings rate in one view.' },
+  { icon: Brain,      color: '#a78bfa', label: 'Mind & Goals',     desc: 'Habits, commitments, and goal progress tracking.' },
+  { icon: BookOpen,   color: '#38bdf8', label: 'Journal',          desc: 'Reflect daily. Find patterns. Build self-awareness.' },
+  { icon: Sparkles,   color: '#fb923c', label: 'Oracle AI',        desc: 'One AI coach that reads all your data and tells you what to do.' },
+]
+
+function MarketingLanding() {
+  const [email, setEmail] = useState('')
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+
+  async function handleWaitlist(e: React.FormEvent) {
+    e.preventDefault()
+    if (!email.trim()) return
+    setEmailStatus('loading')
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source: 'landing' }),
+      })
+      const data = await res.json()
+      setEmailStatus(data.ok ? 'success' : 'error')
+    } catch {
+      setEmailStatus('error')
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-white overflow-x-hidden">
+
+      {/* Nav */}
+      <nav className="flex items-center justify-between px-6 py-4 max-w-5xl mx-auto">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'oklch(0.705 0.213 47.604)' }}>
+            <Activity className="w-4 h-4 text-white" />
+          </div>
+          <span className="font-black text-lg tracking-tight">FORGE</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <Link href="/pricing" className="text-sm text-zinc-400 hover:text-white transition-colors">Pricing</Link>
+          <Link href="/blog" className="text-sm text-zinc-400 hover:text-white transition-colors">Blog</Link>
+          <Link href="/setup" className="text-sm font-semibold px-4 py-2 rounded-lg text-white transition-colors" style={{ background: 'oklch(0.705 0.213 47.604)' }}>
+            Start free
+          </Link>
+        </div>
+      </nav>
+
+      {/* Hero */}
+      <section className="px-6 pt-16 pb-20 max-w-5xl mx-auto text-center">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-900 text-xs text-zinc-400 mb-8">
+          <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+          Join 1,200+ high performers tracking their whole life
+        </div>
+
+        <div className="flex justify-center mb-8">
+          <MarketingScoreRing score={78} />
+        </div>
+
+        <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight mb-4">
+          Stop deciding.<br />
+          <span style={{ color: 'oklch(0.705 0.213 47.604)' }}>Just do.</span>
+        </h1>
+        <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+          One AI-powered dashboard for health, body, money, and goals.<br />
+          Free to start. No account required.
+        </p>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link href="/setup"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-bold text-white shadow-lg transition-all hover:scale-105"
+            style={{ background: 'oklch(0.705 0.213 47.604)', boxShadow: '0 0 24px oklch(0.705 0.213 47.604 / 0.35)' }}>
+            Start for free
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+          <Link href="/pricing"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-semibold border border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-zinc-500 transition-colors">
+            See pricing
+          </Link>
+        </div>
+      </section>
+
+      {/* Stats bar */}
+      <div className="border-y border-zinc-800 bg-zinc-900/60 py-4">
+        <div className="max-w-5xl mx-auto px-6 flex flex-wrap items-center justify-center gap-8 text-xs text-zinc-500 font-medium uppercase tracking-widest">
+          <span>Built for high performers</span>
+          <span className="hidden sm:inline text-zinc-700">·</span>
+          <span>Free forever</span>
+          <span className="hidden sm:inline text-zinc-700">·</span>
+          <span>Data stays on your device</span>
+        </div>
+      </div>
+
+      {/* 6 Module cards */}
+      <section className="px-6 py-20 max-w-5xl mx-auto">
+        <p className="text-xs text-zinc-500 uppercase tracking-widest text-center mb-3">Six domains. One system.</p>
+        <h2 className="text-2xl md:text-3xl font-black text-center mb-12">Every part of your life, connected.</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {MODULES.map(({ icon: Icon, color, label, desc }) => (
+            <div key={label} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 hover:border-zinc-600 transition-colors">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-4" style={{ background: `${color}18` }}>
+                <Icon className="w-4.5 h-4.5" style={{ color }} />
+              </div>
+              <div className="text-sm font-bold mb-1">{label}</div>
+              <div className="text-xs text-zinc-500 leading-relaxed">{desc}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Oracle demo */}
+      <section className="px-6 pb-20 max-w-5xl mx-auto">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 md:p-8 max-w-2xl mx-auto">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'oklch(0.705 0.213 47.604 / 0.15)' }}>
+              <Sparkles className="w-3.5 h-3.5" style={{ color: 'oklch(0.705 0.213 47.604)' }} />
+            </div>
+            <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Oracle AI · Today</span>
+          </div>
+          <p className="text-sm md:text-base text-zinc-200 leading-relaxed">
+            &ldquo;Your HRV is down 18% while training load peaked — sleep debt is compounding. Cut volume by 30% today and prioritize 8h tonight.&rdquo;
+          </p>
+          <div className="mt-4 pt-4 border-t border-zinc-800 flex items-center justify-between">
+            <span className="text-xs text-zinc-600">Based on your vitals, workouts, and sleep data</span>
+            <Link href="/setup" className="text-xs font-semibold" style={{ color: 'oklch(0.705 0.213 47.604)' }}>
+              Get your insight →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Email capture */}
+      <section className="px-6 pb-20 max-w-5xl mx-auto">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 md:p-12 text-center max-w-xl mx-auto">
+          <h2 className="text-xl md:text-2xl font-black mb-2">Get early access updates</h2>
+          <p className="text-sm text-zinc-500 mb-6">Be first to hear about new features and launch news.</p>
+
+          {emailStatus === 'success' ? (
+            <div className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-semibold">
+              <CheckCircle2 className="w-4 h-4" />
+              You&apos;re on the list. We&apos;ll be in touch.
+            </div>
+          ) : (
+            <form onSubmit={handleWaitlist} className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                required
+                className="flex-1 px-4 py-3 rounded-xl bg-zinc-800 border border-zinc-700 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-zinc-500 transition-colors"
+              />
+              <button
+                type="submit"
+                disabled={emailStatus === 'loading'}
+                className="px-6 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-60 flex-shrink-0"
+                style={{ background: 'oklch(0.705 0.213 47.604)' }}>
+                {emailStatus === 'loading' ? '...' : 'Notify me'}
+              </button>
+            </form>
+          )}
+          {emailStatus === 'error' && (
+            <p className="text-xs text-red-400 mt-2">Something went wrong. Try again.</p>
+          )}
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="px-6 pb-24 max-w-5xl mx-auto text-center">
+        <h2 className="text-2xl md:text-4xl font-black mb-4">
+          Start building your life OS
+        </h2>
+        <p className="text-zinc-500 text-sm mb-8">Free. No account required. Your data stays local.</p>
+        <Link href="/setup"
+          className="inline-flex items-center gap-2 px-10 py-5 rounded-xl text-lg font-black text-white shadow-2xl transition-all hover:scale-105"
+          style={{ background: 'oklch(0.705 0.213 47.604)', boxShadow: '0 0 40px oklch(0.705 0.213 47.604 / 0.4)' }}>
+          Start building your life OS →
+        </Link>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-zinc-900 py-8 px-6 text-center">
+        <div className="flex justify-center gap-6 text-xs text-zinc-600">
+          <Link href="/privacy" className="hover:text-zinc-400 transition-colors">Privacy</Link>
+          <Link href="/terms" className="hover:text-zinc-400 transition-colors">Terms</Link>
+          <Link href="/blog" className="hover:text-zinc-400 transition-colors">Blog</Link>
+          <Link href="/pricing" className="hover:text-zinc-400 transition-colors">Pricing</Link>
+        </div>
+        <p className="text-xs text-zinc-800 mt-4">FORGE Life OS · Built for ambitious people</p>
+      </footer>
+    </div>
+  )
+}
+
+/* ── Dashboard (existing code) ─────────────────────────── */
+function Dashboard() {
   const [scores, setScores] = useState<LifeScores>({
     overall: 0,
     health: { score: 0, trend: 'flat', label: 'Health' },
@@ -174,6 +401,7 @@ export default function CommandCenter() {
       }
     } catch {}
     fetchOracleBrief()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayStr])
 
   async function fetchOracleBrief() {
@@ -187,12 +415,29 @@ export default function CommandCenter() {
           mode: 'brief',
           message: 'You are reviewing this person\'s data right now. Give ONE specific, direct observation and ONE concrete action they should take today. 2 sentences maximum. No greetings. Start immediately with the insight.',
           userData,
+          stream: true,
         }),
       })
-      const data = await res.json()
-      if (data.content && !data.content.includes('unavailable')) {
-        localStorage.setItem('forge_oracle_brief', JSON.stringify({ date: todayStr, content: data.content }))
-        setOracleBrief(data.content)
+
+      if (!res.ok || !res.body) return
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let accumulated = ''
+      let firstChunk = true
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        accumulated += decoder.decode(value, { stream: true })
+        if (firstChunk) { firstChunk = false; setLoadingBrief(false) }
+        setOracleBrief(accumulated)
+      }
+
+      if (accumulated && !accumulated.toLowerCase().includes('unavailable')) {
+        try {
+          localStorage.setItem('forge_oracle_brief', JSON.stringify({ date: todayStr, content: accumulated }))
+        } catch {}
       }
     } catch {}
     finally { setLoadingBrief(false) }
@@ -302,9 +547,7 @@ export default function CommandCenter() {
           <p className="text-sm text-foreground leading-relaxed">{oracleBrief}</p>
         ) : (
           <p className="text-xs text-muted-foreground">
-            {process.env.NEXT_PUBLIC_HAS_ORACLE !== 'false'
-              ? 'Set ANTHROPIC_API_KEY to activate Oracle intelligence.'
-              : 'Oracle needs your data — log vitals today to get your first insight.'}
+            Oracle needs your data — log vitals today to get your first insight.
           </p>
         )}
         <Link href="/oracle" className="flex items-center gap-1 text-xs text-primary hover:underline mt-3 pt-3 border-t border-border">
@@ -405,7 +648,11 @@ export default function CommandCenter() {
             </Link>
           </div>
           {habits.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No habits yet — <Link href="/mind" className="text-primary hover:underline">start building your stack</Link></p>
+            <div className="text-center py-4">
+              <p className="text-sm font-medium text-foreground mb-1">No habits yet</p>
+              <p className="text-xs text-muted-foreground mb-3">Identity is built through daily reps. Start with one.</p>
+              <Link href="/mind" className="text-xs bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-full hover:bg-primary/20 transition-colors">+ Add your first habit</Link>
+            </div>
           ) : (
             <ul className="space-y-2">
               {habits.slice(0, 6).map(habit => {
@@ -436,7 +683,11 @@ export default function CommandCenter() {
             </Link>
           </div>
           {tasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No commitments — <Link href="/mind" className="text-primary hover:underline">add what you promised yourself</Link></p>
+            <div className="text-center py-4">
+              <p className="text-sm font-medium text-foreground mb-1">No commitments</p>
+              <p className="text-xs text-muted-foreground mb-3">What did you promise yourself this week?</p>
+              <Link href="/mind" className="text-xs bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-full hover:bg-primary/20 transition-colors">+ Add a commitment</Link>
+            </div>
           ) : (
             <ul className="space-y-2">
               {tasks.map(task => (
@@ -457,4 +708,19 @@ export default function CommandCenter() {
     </div>
     </>
   )
+}
+
+/* ── Page entry point ──────────────────────────────────── */
+export default function CommandCenter() {
+  const [hasProfile, setHasProfile] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    const profile = profileStore.get()
+    setHasProfile(!!(profile?.setupComplete))
+  }, [])
+
+  // Still checking localStorage — render nothing to avoid flash
+  if (hasProfile === null) return null
+
+  return hasProfile ? <Dashboard /> : <MarketingLanding />
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ArticleJsonLd } from '@/components/JsonLd'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
@@ -14,7 +15,14 @@ export const metadata: Metadata = {
 
 export default function BiohackerAppPage() {
   return (
-    <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
+    <>
+      <ArticleJsonLd
+        title="The Best Biohacker App in 2026 (That Actually Connects Your Data) | FORGE"
+        description="Most biohacker apps track one thing in isolation. The ideal biohacker stack in 2026 connects HRV, sleep, training, and finance — and uses AI to find the patterns."
+        url="https://forge-five-flax.vercel.app/blog/biohacker-app"
+        datePublished="2026-01-01"
+      />
+      <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
       <header className="mb-10">
         <p className="text-sm text-orange-400 font-medium mb-3">Health · Performance · Biohacking</p>
         <h1 className="text-3xl font-bold text-white leading-tight mb-4">
@@ -197,5 +205,6 @@ export default function BiohackerAppPage() {
         </div>
       </footer>
     </article>
+    </>
   )
 }

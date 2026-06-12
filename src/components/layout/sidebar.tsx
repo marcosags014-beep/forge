@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Flame, Home, Heart, Dumbbell, TrendingUp, Target, Sparkles, Lightbulb, BarChart3, BookOpen, Settings, X } from 'lucide-react'
+import { Flame, Home, Heart, Dumbbell, TrendingUp, Target, Sparkles, Lightbulb, BarChart3, BookOpen, Settings, X, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEffect, useState } from 'react'
 import { calculateLifeScores } from '@/lib/store'
@@ -14,8 +14,9 @@ const nav = [
   { href: '/body',     label: 'Body',      icon: Dumbbell,   desc: 'Workouts & nutrition' },
   { href: '/wealth',   label: 'Wealth',    icon: TrendingUp, desc: 'Finances & budget' },
   { href: '/mind',     label: 'Mind',      icon: Target,     desc: 'Goals, habits, tasks' },
-  { href: '/journal',  label: 'Journal',   icon: BookOpen,   desc: 'Daily reflections' },
-  { href: '/review',   label: 'Review',    icon: BarChart3,  desc: 'Weekly performance' },
+  { href: '/journal',   label: 'Journal',   icon: BookOpen,   desc: 'Daily reflections' },
+  { href: '/timeline',  label: 'Timeline',  icon: Clock,      desc: 'Hourly activity log' },
+  { href: '/review',    label: 'Review',    icon: BarChart3,  desc: 'Weekly performance' },
   { href: '/oracle',   label: 'Oracle',    icon: Sparkles,   desc: 'AI life coach' },
 ]
 

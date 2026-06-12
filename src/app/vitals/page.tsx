@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { Moon, Heart, Zap, Smile, Save, Watch } from 'lucide-react'
+import { Moon, Heart, Zap, Smile, Save, Watch, Trash2 } from 'lucide-react'
 import { fetchTodayHealthData, requestHealthPermissions, isNative, scheduleDailyVitalsReminder, requestNotificationPermission } from '@/lib/health'
 import { Button } from '@/components/ui/button'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { vitalsStore, generateId, today, calculateReadiness } from '@/lib/store'
+
 import type { VitalEntry } from '@/lib/types'
 
 function Slider({ label, value, onChange, min = 1, max = 10, icon: Icon }: {
@@ -181,6 +182,13 @@ export default function VitalsPage() {
 
         {/* Today's snapshot */}
         <div className="space-y-4">
+          {!last && (
+            <div className="forge-card flex flex-col items-center justify-center text-center p-8 min-h-[200px]">
+              <Heart className="w-10 h-10 text-muted-foreground/30 mb-3" />
+              <p className="font-semibold text-sm mb-1.5">Log your first vitals</p>
+              <p className="text-xs text-muted-foreground leading-relaxed max-w-xs">Track sleep, HRV, and energy daily. After 3+ entries Oracle builds your recovery pattern — the data behind your performance ceiling.</p>
+            </div>
+          )}
           {last && (
             <div className="grid grid-cols-2 gap-3">
               {[
@@ -249,12 +257,18 @@ export default function VitalsPage() {
           <div className="forge-label mb-4">History</div>
           <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-hide">
             {entries.map(e => (
-              <div key={e.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 text-sm">
-                <span className="text-muted-foreground">{format(new Date(e.date), 'MMM d')}</span>
+              <div key={e.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 text-sm group">
+                <span className="text-muted-foreground w-12 flex-shrink-0">{format(new Date(e.date), 'MMM d')}</span>
                 <span>Sleep: <b>{e.sleepHours}h</b></span>
                 <span>HRV: <b className="text-green-400">{e.hrv}ms</b></span>
                 <span>Energy: <b>{e.energy}/10</b></span>
-                <span>Readiness: <b className="text-primary">{calculateReadiness(e)}%</b></span>
+                <span className="flex items-center gap-2">
+                  <b className="text-primary">{calculateReadiness(e)}%</b>
+                  <button onClick={() => { vitalsStore.delete(e.id); setEntries(vitalsStore.getRecent(30)) }}
+                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </span>
               </div>
             ))}
           </div>

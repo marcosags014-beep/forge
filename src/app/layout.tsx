@@ -3,11 +3,14 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { LayoutShell } from '@/components/layout/layout-shell'
 import { Analytics } from '@vercel/analytics/react'
+import { SyncProvider } from '@/components/SyncProvider'
+import { PostHogProvider } from '@/components/PostHogProvider'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://forge-five-flax.vercel.app'),
   title: 'FORGE — Stop Deciding. Just Do.',
   description: 'One dashboard for health, body, money, and goals. The AI tells you what to focus on today. Free. No account. Data stays on your device.',
   manifest: '/manifest.json',
@@ -36,6 +39,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -46,8 +50,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}` }} />
       </head>
       <body className="min-h-full bg-background text-foreground">
-        <LayoutShell>{children}</LayoutShell>
-        <Analytics />
+        <PostHogProvider>
+          <SyncProvider />
+          <LayoutShell>{children}</LayoutShell>
+          <Analytics />
+        </PostHogProvider>
       </body>
     </html>
   )

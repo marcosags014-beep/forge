@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { ArticleJsonLd } from '@/components/JsonLd'
 
 export const metadata: Metadata = {
   title: 'The Alignment Score: Why Habit Streaks Are Lying to You | FORGE',
@@ -13,7 +14,14 @@ export const metadata: Metadata = {
 
 export default function AlignmentScorePost() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <>
+      <ArticleJsonLd
+        title="The Alignment Score: Why Habit Streaks Are Lying to You | FORGE"
+        description="Most productivity apps reward logging. FORGE measures whether you actually do what you say you will. The Alignment Score is the gap between your commitments and your execution."
+        url="https://forge-five-flax.vercel.app/blog/alignment-score"
+        datePublished="2026-01-01"
+      />
+      <div className="min-h-screen bg-background text-foreground">
       <nav className="px-6 md:px-16 py-5 border-b border-border">
         <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back to FORGE</Link>
       </nav>
@@ -92,5 +100,6 @@ export default function AlignmentScorePost() {
         </div>
       </article>
     </div>
+    </>
   )
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ArticleJsonLd } from '@/components/JsonLd'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
@@ -14,7 +15,14 @@ export const metadata: Metadata = {
 
 export default function YnabAlternativePage() {
   return (
-    <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
+    <>
+      <ArticleJsonLd
+        title="Best YNAB Alternative in 2026 That Connects to Your Health | FORGE"
+        description="YNAB cannot tell you that your overspending weeks follow your worst sleep weeks. FORGE tracks both — and connects them with AI."
+        url="https://forge-five-flax.vercel.app/blog/ynab-alternative"
+        datePublished="2026-01-01"
+      />
+      <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
       <header className="mb-10">
         <p className="text-sm text-orange-400 font-medium mb-3">Wealth · Comparison</p>
         <h1 className="text-3xl font-bold text-white leading-tight mb-4">
@@ -146,11 +154,13 @@ export default function YnabAlternativePage() {
       <footer className="mt-12 pt-8 border-t border-zinc-800">
         <p className="text-zinc-500 text-sm mb-3">Related:</p>
         <div className="flex gap-4 flex-wrap">
+          <Link href="/vs/ynab" className="text-orange-400 hover:text-orange-300 text-sm">FORGE vs YNAB — Full Comparison</Link>
           <Link href="/blog/personal-finance-tracker" className="text-orange-400 hover:text-orange-300 text-sm">Finance + Health Tracking</Link>
           <Link href="/blog/hrv-tracking" className="text-orange-400 hover:text-orange-300 text-sm">HRV Tracking</Link>
           <Link href="/blog/alignment-score" className="text-orange-400 hover:text-orange-300 text-sm">Alignment Score</Link>
         </div>
       </footer>
     </article>
+    </>
   )
 }

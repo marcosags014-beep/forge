@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { ArticleJsonLd } from '@/components/JsonLd'
 
 export const metadata: Metadata = {
   title: 'What Is a Personal Life OS? | FORGE',
@@ -13,7 +14,14 @@ export const metadata: Metadata = {
 
 export default function LifeOSPost() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <>
+      <ArticleJsonLd
+        title="What Is a Personal Life OS? | FORGE"
+        description="One unified system for health, body, wealth, and mind — connected by AI that finds the patterns between them. Here is what a life OS actually is."
+        url="https://forge-five-flax.vercel.app/blog/life-os"
+        datePublished="2026-01-01"
+      />
+      <div className="min-h-screen bg-background text-foreground">
       <nav className="px-6 md:px-16 py-5 border-b border-border">
         <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back to FORGE</Link>
       </nav>
@@ -100,5 +108,6 @@ export default function LifeOSPost() {
         </div>
       </article>
     </div>
+    </>
   )
 }

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { ArticleJsonLd } from '@/components/JsonLd'
 
 export const metadata: Metadata = {
   title: 'HRV Tracking: The One Metric That Connects Sleep, Money, and Performance | FORGE',
@@ -13,7 +14,14 @@ export const metadata: Metadata = {
 
 export default function HRVPost() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <>
+      <ArticleJsonLd
+        title="HRV: The Metric That Connects Sleep, Money, and Performance | FORGE"
+        description="Your HRV predicts not just your workout quality — but your spending decisions, mood, and decision quality. Here is how to track it and what to do with it."
+        url="https://forge-five-flax.vercel.app/blog/hrv-tracking"
+        datePublished="2026-01-01"
+      />
+      <div className="min-h-screen bg-background text-foreground">
       <nav className="px-6 md:px-16 py-5 border-b border-border">
         <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back to FORGE</Link>
       </nav>
@@ -101,5 +109,6 @@ export default function HRVPost() {
         </div>
       </article>
     </div>
+    </>
   )
 }

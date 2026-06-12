@@ -48,6 +48,13 @@ function HabitsPanel() {
         </div>
       </div>
 
+      {habits.length === 0 && (
+        <div className="forge-card flex flex-col items-center justify-center text-center py-8">
+          <CheckCircle2 className="w-8 h-8 text-muted-foreground/30 mb-3" />
+          <p className="font-semibold text-sm mb-1.5">No habits tracked yet</p>
+          <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">Add your first habit above. Streaks, completion rates, and your FORGE Alignment Score all start here.</p>
+        </div>
+      )}
       {habits.length > 0 && (
         <div className="forge-card">
           <div className="flex items-center gap-4 mb-3">

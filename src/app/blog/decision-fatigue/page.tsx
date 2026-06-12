@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { ArticleJsonLd } from '@/components/JsonLd'
 
 export const metadata: Metadata = {
   title: 'Decision Fatigue Is Killing Your Mornings (Here Is How to Fix It) | FORGE',
@@ -13,7 +14,14 @@ export const metadata: Metadata = {
 
 export default function DecisionFatiguePost() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <>
+      <ArticleJsonLd
+        title="Decision Fatigue Is Killing Your Mornings (Here Is How to Fix It) | FORGE"
+        description="The average knowledge worker makes 35,000 decisions per day. Most happen before 10am. Decision fatigue is why your best intentions evaporate by noon — and how a single dashboard fixes it."
+        url="https://forge-five-flax.vercel.app/blog/decision-fatigue"
+        datePublished="2026-01-01"
+      />
+      <div className="min-h-screen bg-background text-foreground">
       <nav className="px-6 md:px-16 py-5 border-b border-border">
         <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back to FORGE</Link>
       </nav>
@@ -94,5 +102,6 @@ export default function DecisionFatiguePost() {
         </div>
       </article>
     </div>
+    </>
   )
 }

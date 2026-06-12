@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { Plus, Trash2, Save, Dumbbell, Apple, Scale } from 'lucide-react'
+import { Plus, Trash2, Save, Dumbbell, Apple, Scale, X, Camera, Sparkles, Upload, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
-import { workoutsStore, nutritionStore, bodyStore, generateId, today } from '@/lib/store'
+import { workoutsStore, nutritionStore, bodyStore, generateId, today, getAllDataForAI } from '@/lib/store'
+import { useRef } from 'react'
+
 import type { WorkoutEntry, NutritionEntry, BodyMetric, Exercise } from '@/lib/types'
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number; name: string; color: string }[]; label?: string }) => {
@@ -190,13 +192,26 @@ function WorkoutLogger() {
           <div className="forge-label mb-3">Recent Workouts</div>
           <div className="space-y-2">
             {history.slice(0, 5).map(w => (
-              <div key={w.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 text-sm">
-                <span className="text-muted-foreground">{format(new Date(w.date), 'MMM d')}</span>
-                <span>{w.exercises.filter(e => e.name).map(e => e.name).join(', ')}</span>
-                <span className="text-muted-foreground">{w.duration}min</span>
+              <div key={w.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 text-sm group">
+                <span className="text-muted-foreground w-12 flex-shrink-0">{format(new Date(w.date), 'MMM d')}</span>
+                <span className="flex-1 truncate px-2">{w.exercises.filter(e => e.name).map(e => e.name).join(', ') || w.notes || '—'}</span>
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  {w.duration}min
+                  <button onClick={() => { workoutsStore.delete(w.id); setHistory(workoutsStore.getRecent(10)) }}
+                    className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </span>
               </div>
             ))}
           </div>
+        </div>
+      )}
+      {history.length === 0 && (
+        <div className="forge-card flex flex-col items-center justify-center text-center py-8">
+          <Dumbbell className="w-8 h-8 text-muted-foreground/30 mb-3" />
+          <p className="font-semibold text-sm mb-1.5">No workouts logged yet</p>
+          <p className="text-xs text-muted-foreground max-w-xs">Log your first session above. Volume trends and progressive overload tracking appear after 3+ workouts.</p>
         </div>
       )}
     </div>
@@ -346,12 +361,173 @@ function BodyTracker() {
   )
 }
 
+function BodyScan() {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [preview, setPreview] = useState<string | null>(null)
+  const [mediaType, setMediaType] = useState<string>('image/jpeg')
+  const [analysis, setAnalysis] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  function resizeAndEncode(file: File): Promise<{ base64: string; mimeType: string }> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const MAX = 1024
+        const ratio = Math.min(MAX / img.width, MAX / img.height, 1)
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(img.width * ratio)
+        canvas.height = Math.round(img.height * ratio)
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+        const base64 = dataUrl.split(',')[1]
+        resolve({ base64, mimeType: 'image/jpeg' })
+      }
+      img.onerror = reject
+      img.src = url
+    })
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAnalysis('')
+    setError('')
+    const { base64, mimeType } = await resizeAndEncode(file)
+    setPreview(`data:${mimeType};base64,${base64}`)
+    setMediaType(mimeType)
+    await analyse(base64, mimeType)
+  }
+
+  async function analyse(base64: string, mimeType: string) {
+    setLoading(true)
+    setAnalysis('')
+    try {
+      const userData = getAllDataForAI()
+      const res = await fetch('/api/oracle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'vision',
+          imageData: base64,
+          mediaType: mimeType,
+          agentPrompt: `You are a professional physique coach and sports scientist analysing a body photo. Be honest and constructive. Structure your response with these sections (no markdown headers, use plain text):
+
+POSTURE & STRUCTURE — spine alignment, shoulder symmetry, hip balance, any imbalances you observe.
+MUSCLE DEVELOPMENT — dominant muscle groups, visible weak points, estimated development stage (beginner/intermediate/advanced).
+BODY COMPOSITION — estimated body fat range, muscle-to-fat ratio, frame type.
+TRAINING RECOMMENDATIONS — 3 specific training focuses based on what you see. Be precise.
+PRIORITY — the single biggest physical improvement lever for this person.
+
+Be direct and specific. No generic advice. No disclaimers about not being a doctor unless truly necessary.`,
+          message: `Analyse my body photo. My training data for context:\n\nWorkout history: ${userData.workouts?.length ?? 0} sessions logged.\nCurrent goals: ${userData.goals?.map((g: {title: string}) => g.title).join(', ') || 'none set'}.`,
+          userData,
+        }),
+      })
+      const data = await res.json()
+      setAnalysis(data.content ?? '')
+    } catch {
+      setError('Could not reach Oracle. Try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function reset() {
+    setPreview(null)
+    setAnalysis('')
+    setError('')
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="forge-card">
+        <div className="flex items-center justify-between mb-3">
+          <span className="forge-label flex items-center gap-2">
+            <Camera className="w-3.5 h-3.5" />AI Body Analysis
+          </span>
+          {preview && (
+            <button onClick={reset} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+          Upload a front or side photo — Oracle analyses posture, muscle development, body composition, and gives you specific training recommendations. Photos are <span className="text-foreground font-medium">never stored</span>.
+        </p>
+
+        {!preview ? (
+          <label className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <Upload className="w-5 h-5 text-primary" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium mb-0.5">Choose photo or take one</p>
+              <p className="text-xs text-muted-foreground">Front or side, good lighting, minimal clothing</p>
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              capture="user"
+              onChange={handleFile}
+              className="hidden"
+            />
+          </label>
+        ) : (
+          <div className="space-y-4">
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={preview} alt="Body scan preview" className="w-full max-h-80 object-contain rounded-xl bg-secondary" />
+              {loading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/70 rounded-xl">
+                  <div className="flex flex-col items-center gap-2">
+                    <Sparkles className="w-6 h-6 text-primary animate-pulse" />
+                    <p className="text-xs text-muted-foreground">Oracle is analysing…</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {error && (
+              <p className="text-sm text-red-400">{error}</p>
+            )}
+
+            {analysis && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-semibold text-primary">Oracle&apos;s Assessment</span>
+                </div>
+                <div className="text-sm leading-relaxed whitespace-pre-line text-foreground">{analysis}</div>
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-2">
+                  <RefreshCw className="w-3 h-3" />
+                  Analyse a different photo
+                </button>
+                <input ref={fileRef} type="file" accept="image/*" capture="user" onChange={handleFile} className="hidden" />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function BodyPage() {
-  const [tab, setTab] = useState<'workout' | 'nutrition' | 'body'>('workout')
+  const [tab, setTab] = useState<'workout' | 'nutrition' | 'body' | 'scan'>('workout')
   const tabs = [
     { id: 'workout', label: 'Workouts', icon: Dumbbell },
     { id: 'nutrition', label: 'Nutrition', icon: Apple },
     { id: 'body', label: 'Body', icon: Scale },
+    { id: 'scan', label: 'Scan', icon: Camera },
   ] as const
 
   return (
@@ -373,6 +549,7 @@ export default function BodyPage() {
       {tab === 'workout' && <WorkoutLogger />}
       {tab === 'nutrition' && <NutritionTracker />}
       {tab === 'body' && <BodyTracker />}
+      {tab === 'scan' && <BodyScan />}
     </div>
   )
 }

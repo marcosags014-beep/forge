@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ArticleJsonLd } from '@/components/JsonLd'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
@@ -14,7 +15,14 @@ export const metadata: Metadata = {
 
 export default function VsNotionLifeOsPage() {
   return (
-    <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
+    <>
+      <ArticleJsonLd
+        title="FORGE vs Notion as a Life OS (2026) | Which One Actually Works? | FORGE"
+        description="Notion is a brilliant blank canvas. It will not tell you your HRV is low, your spending is spiking, and your goals are at risk — all at once. Here is the real difference."
+        url="https://forge-five-flax.vercel.app/blog/vs-notion-life-os"
+        datePublished="2026-01-01"
+      />
+      <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
       <header className="mb-10">
         <p className="text-sm text-orange-400 font-medium mb-3">Systems · Comparison</p>
         <h1 className="text-3xl font-bold text-white leading-tight mb-4">
@@ -192,12 +200,14 @@ export default function VsNotionLifeOsPage() {
       <footer className="mt-12 pt-8 border-t border-zinc-800">
         <p className="text-zinc-500 text-sm mb-3">More from the FORGE blog:</p>
         <div className="flex gap-4 flex-wrap">
+          <Link href="/vs/notion" className="text-orange-400 hover:text-orange-300 text-sm">FORGE vs Notion — Full Comparison</Link>
           <Link href="/blog/life-os" className="text-orange-400 hover:text-orange-300 text-sm">What Is a Life OS?</Link>
           <Link href="/blog/alignment-score" className="text-orange-400 hover:text-orange-300 text-sm">Alignment Score</Link>
+          <Link href="/blog/best-life-os-app" className="text-orange-400 hover:text-orange-300 text-sm">Best Life OS Apps 2026</Link>
           <Link href="/blog/decision-fatigue" className="text-orange-400 hover:text-orange-300 text-sm">Decision Fatigue</Link>
-          <Link href="/blog/habit-tracker-alternatives" className="text-orange-400 hover:text-orange-300 text-sm">Habit Tracker Alternatives</Link>
         </div>
       </footer>
     </article>
+    </>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { format, subDays } from 'date-fns'
-import { BookOpen, Save, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
+import { BookOpen, Save, Sparkles, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { journalStore, vitalsStore, generateId, today, getAllDataForAI } from '@/lib/store'
 import type { JournalEntry } from '@/lib/types'
@@ -164,19 +164,26 @@ export default function JournalPage() {
           <p className="forge-label mb-3">Recent Entries</p>
           <div className="space-y-2">
             {entries.filter(e => e.date !== dateStr).slice(0, 5).map(entry => (
-              <button key={entry.id}
-                onClick={() => setDateOffset(Math.floor((new Date().getTime() - new Date(entry.date).getTime()) / (1000 * 60 * 60 * 24)))}
-                className="w-full forge-card text-left hover:border-primary/20 transition-all">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-muted-foreground">{format(new Date(entry.date), 'MMM d')}</span>
-                  {entry.mood && (
-                    <span className={`text-xs font-semibold ${entry.mood >= 7 ? 'text-green-400' : entry.mood >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>
-                      {entry.mood}/10
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground line-clamp-2">{entry.content}</p>
-              </button>
+              <div key={entry.id} className="relative group">
+                <button
+                  onClick={() => setDateOffset(Math.floor((new Date().getTime() - new Date(entry.date).getTime()) / (1000 * 60 * 60 * 24)))}
+                  className="w-full forge-card text-left hover:border-primary/20 transition-all">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-muted-foreground">{format(new Date(entry.date), 'MMM d')}</span>
+                    {entry.mood && (
+                      <span className={`text-xs font-semibold ${entry.mood >= 7 ? 'text-green-400' : entry.mood >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {entry.mood}/10
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{entry.content}</p>
+                </button>
+                <button
+                  onClick={() => { journalStore.delete(entry.id); setEntries(journalStore.getAll()) }}
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all p-1">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
             ))}
           </div>
         </div>

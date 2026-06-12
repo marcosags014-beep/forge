@@ -1,16 +1,55 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Settings, Download, Trash2, User, Shield, Bell, AlertTriangle, Watch, Copy, Check, Sparkles } from 'lucide-react'
+import { Settings, Download, Trash2, User, Shield, Bell, AlertTriangle, Watch, Copy, Check, Sparkles, Cloud, LogOut, Mail, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { profileStore, vitalsStore, workoutsStore, nutritionStore, bodyStore, financeStore, goalsStore, habitsStore, tasksStore, journalStore, getReferralCode, isProUser, getProCustomerId } from '@/lib/store'
+import { profileStore, vitalsStore, workoutsStore, nutritionStore, bodyStore, financeStore, goalsStore, habitsStore, tasksStore, journalStore, getReferralCode, isProUser, getProCustomerId, setProUser } from '@/lib/store'
+import { supabase, supabaseEnabled } from '@/lib/supabase'
+import { pushAllToCloud, pullFromCloud } from '@/lib/sync'
 import type { UserProfile } from '@/lib/types'
 import { isNative, requestNotificationPermission, scheduleDailyVitalsReminder, cancelDailyReminder } from '@/lib/health'
 import Link from 'next/link'
 
+function ReferralBlock({ referralCode, copied, setCopied }: {
+  referralCode: string
+  copied: boolean
+  setCopied: (v: boolean) => void
+}) {
+  const referralLink = `https://forge-five-flax.vercel.app/?ref=${referralCode}`
+  const tweetText = encodeURIComponent(
+    `I track my health, fitness, finances and goals in one app — FORGE. It's free and the AI is actually useful: https://forge-five-flax.vercel.app/?ref=${referralCode}`
+  )
+
+  return (
+    <div className="space-y-2 pt-2 border-t border-border">
+      <label className="forge-label">Your referral link</label>
+      <div className="flex gap-2">
+        <div className="forge-input flex-1 font-mono text-xs select-all truncate">{referralLink}</div>
+        <Button size="sm" variant="outline" className="gap-1.5 flex-shrink-0"
+          onClick={() => { navigator.clipboard.writeText(referralLink); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>
+          {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+          {copied ? 'Copied' : 'Copy'}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        Share your link. When 3 friends complete setup, you get 1 month of FORGE Pro free.
+      </p>
+      <Button
+        size="sm"
+        variant="outline"
+        className="gap-2 w-full mt-1"
+        onClick={() => window.open(`https://twitter.com/intent/tweet?text=${tweetText}`, '_blank', 'noopener,noreferrer')}>
+        <Share2 className="w-3.5 h-3.5 text-[#1DA1F2]" />
+        Share on Twitter
+      </Button>
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [name, setName] = useState('')
+  const [identity, setIdentity] = useState('')
   const [saved, setSaved] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [reminderOn, setReminderOn] = useState(false)
@@ -20,11 +59,18 @@ export default function SettingsPage() {
   const [proCustomerId, setProCustomerId] = useState<string | null>(null)
   const [managingSubscription, setManagingSubscription] = useState(false)
   const [stats, setStats] = useState({ vitals: 0, workouts: 0, transactions: 0, habits: 0, goals: 0, journal: 0 })
+  const [accessCode, setAccessCode] = useState('')
+  const [codeStatus, setCodeStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [syncEmail, setSyncEmail] = useState('')
+  const [syncUser, setSyncUser] = useState<string | null>(null)
+  const [syncStep, setSyncStep] = useState<'idle' | 'loading' | 'sent'>('idle')
+  const [syncStatus, setSyncStatus] = useState<string | null>(null)
 
   useEffect(() => {
     const p = profileStore.get()
     setProfile(p)
     setName(p?.name ?? '')
+    setIdentity(p?.identity ?? '')
     setStats({
       vitals:       vitalsStore.getAll().length,
       workouts:     workoutsStore.getAll().length,
@@ -34,6 +80,11 @@ export default function SettingsPage() {
       journal:      journalStore.getAll().length,
     })
     setReferralCode(getReferralCode())
+    if (supabase) {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user?.email) setSyncUser(user.email)
+      })
+    }
     const proStatus = isProUser()
     setPro(proStatus)
     if (proStatus) setProCustomerId(getProCustomerId())
@@ -41,7 +92,9 @@ export default function SettingsPage() {
 
   function saveProfile() {
     const updated: UserProfile = {
+      ...profile,
       name: name.trim() || 'You',
+      identity: identity.trim() || profile?.identity,
       primaryGoal: profile?.primaryGoal ?? 'fitness',
       setupComplete: true,
       joinedAt: profile?.joinedAt ?? new Date().toISOString(),
@@ -75,6 +128,60 @@ export default function SettingsPage() {
     URL.revokeObjectURL(url)
   }
 
+  async function signInWithGoogle() {
+    if (!supabase) return
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
+  }
+
+  async function sendMagicLink() {
+    if (!supabase || !syncEmail.trim()) return
+    setSyncStep('loading')
+    const { error } = await supabase.auth.signInWithOtp({
+      email: syncEmail.trim(),
+      options: { shouldCreateUser: true },
+    })
+    setSyncStep(error ? 'idle' : 'sent')
+  }
+
+  async function handleSignOut() {
+    if (!supabase) return
+    await supabase.auth.signOut()
+    setSyncUser(null)
+  }
+
+  async function handlePush() {
+    setSyncStatus('Syncing...')
+    const ok = await pushAllToCloud()
+    setSyncStatus(ok ? 'All data synced ✓' : 'Sync failed — check connection')
+    setTimeout(() => setSyncStatus(null), 3000)
+  }
+
+  async function handlePull() {
+    setSyncStatus('Downloading...')
+    const ok = await pullFromCloud()
+    if (ok) { setSyncStatus('Data restored ✓'); setTimeout(() => window.location.reload(), 1000) }
+    else { setSyncStatus('Nothing to restore or not connected'); setTimeout(() => setSyncStatus(null), 3000) }
+  }
+
+  function redeemCode() {
+    const encoded = btoa(accessCode.trim())
+    const valid = [
+      'TUFSR09TLUZPUkdFLUZPVU5ERVI=',  // founder
+      btoa('FORGE-BETA-2026'),            // tester
+    ]
+    if (valid.includes(encoded)) {
+      setProUser('owner', '2099-12-31')
+      setPro(true)
+      setCodeStatus('success')
+    } else {
+      setCodeStatus('error')
+      setTimeout(() => setCodeStatus('idle'), 2500)
+    }
+  }
+
   function resetAllData() {
     const keys = ['vitals', 'workouts', 'nutrition', 'body', 'finance', 'goals', 'habits', 'tasks', 'chat', 'journal', 'achievements', 'profile']
     keys.forEach(k => localStorage.removeItem(`forge_${k}`))
@@ -106,6 +213,17 @@ export default function SettingsPage() {
             <input value={name} onChange={e => setName(e.target.value)}
               className="forge-input"
               placeholder="First name or nickname" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="forge-label">I am becoming…</label>
+            <textarea
+              value={identity}
+              onChange={e => setIdentity(e.target.value)}
+              rows={3}
+              placeholder="Describe the person you're becoming (e.g. a disciplined athlete who leads by example)"
+              className="w-full bg-secondary border border-border rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground resize-none outline-none focus:border-primary/50 transition-colors"
+            />
+            <p className="text-[10px] text-muted-foreground">Oracle uses this to personalise every recommendation to your vision.</p>
           </div>
           {profile?.primaryGoal && (
             <div className="space-y-1.5">
@@ -227,18 +345,7 @@ export default function SettingsPage() {
                 {managingSubscription ? 'Opening…' : 'Manage Subscription'}
               </Button>
             )}
-            <div className="space-y-1">
-              <label className="forge-label">Your referral code</label>
-              <div className="flex gap-2">
-                <div className="forge-input flex-1 font-mono text-sm select-all">{referralCode}</div>
-                <Button size="sm" variant="outline" className="gap-1.5 flex-shrink-0"
-                  onClick={() => { navigator.clipboard.writeText(referralCode); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>
-                  {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copied ? 'Copied' : 'Copy'}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">Share with friends to earn free months.</p>
-            </div>
+            <ReferralBlock referralCode={referralCode} copied={copied} setCopied={setCopied} />
           </div>
         ) : (
           <div className="space-y-3">
@@ -251,21 +358,104 @@ export default function SettingsPage() {
                 Start 7-Day Free Trial
               </Button>
             </Link>
-            <div className="space-y-1">
-              <label className="forge-label">Your referral code</label>
-              <div className="flex gap-2">
-                <div className="forge-input flex-1 font-mono text-sm select-all">{referralCode}</div>
-                <Button size="sm" variant="outline" className="gap-1.5 flex-shrink-0"
-                  onClick={() => { navigator.clipboard.writeText(referralCode); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>
-                  {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copied ? 'Copied' : 'Copy'}
-                </Button>
+            <ReferralBlock referralCode={referralCode} copied={copied} setCopied={setCopied} />
+          </div>
+        )}
+      </Section>
+
+      {/* Cloud Sync */}
+      <Section title="Cloud Sync" icon={Cloud}>
+        {!supabaseEnabled ? (
+          <p className="text-xs text-muted-foreground">Cloud sync not configured yet. Add Supabase keys to enable.</p>
+        ) : syncUser ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-4 py-3 bg-green-500/10 rounded-xl border border-green-500/20">
+              <Cloud className="w-4 h-4 text-green-400 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-green-400">Sync active</p>
+                <p className="text-xs text-muted-foreground truncate">{syncUser}</p>
               </div>
-              <p className="text-xs text-muted-foreground">Share with friends — both get a free month when they subscribe.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handlePush} variant="outline" size="sm" className="flex-1 gap-1.5">
+                <Cloud className="w-3.5 h-3.5" />Save to cloud
+              </Button>
+              <Button onClick={handlePull} variant="outline" size="sm" className="flex-1 gap-1.5">
+                <Download className="w-3.5 h-3.5" />Restore
+              </Button>
+            </div>
+            {syncStatus && <p className="text-xs text-primary">{syncStatus}</p>}
+            <button onClick={handleSignOut} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-400 transition-colors">
+              <LogOut className="w-3 h-3" />Sign out of sync
+            </button>
+          </div>
+        ) : syncStep === 'sent' ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-4 py-3 bg-primary/10 rounded-xl border border-primary/20">
+              <Mail className="w-4 h-4 text-primary" />
+              <div>
+                <p className="text-sm font-semibold text-primary">Check your email</p>
+                <p className="text-xs text-muted-foreground">Click the link sent to {syncEmail} to activate sync.</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Sync your data across all devices. Sign in once — everything follows you.</p>
+            <button
+              onClick={signInWithGoogle}
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-secondary transition-colors text-sm font-medium"
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+                <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+                <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+                <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+              </svg>
+              Continue with Google
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground">or use email</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={syncEmail}
+                onChange={e => setSyncEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && sendMagicLink()}
+                placeholder="your@email.com"
+                type="email"
+                className="forge-input flex-1"
+              />
+              <Button onClick={sendMagicLink} disabled={syncStep === 'loading'} className="bg-primary text-primary-foreground flex-shrink-0">
+                {syncStep === 'loading' ? '...' : 'Send link'}
+              </Button>
             </div>
           </div>
         )}
       </Section>
+
+      {/* Access Code */}
+      {!pro && (
+        <Section title="Access Code" icon={Shield}>
+          <p className="text-sm text-muted-foreground mb-3">Have a founder or partner access code? Redeem it here for full Pro access.</p>
+          <div className="flex gap-2">
+            <input
+              value={accessCode}
+              onChange={e => setAccessCode(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && redeemCode()}
+              placeholder="Enter code"
+              className="forge-input flex-1 font-mono tracking-widest uppercase"
+            />
+            <Button onClick={redeemCode} className="bg-primary text-primary-foreground flex-shrink-0">
+              Redeem
+            </Button>
+          </div>
+          {codeStatus === 'success' && <p className="text-xs text-green-400 mt-2">✓ Founder access activated — enjoy FORGE Pro.</p>}
+          {codeStatus === 'error' && <p className="text-xs text-red-400 mt-2">Invalid code. Check and try again.</p>}
+        </Section>
+      )}
 
       {/* Danger zone */}
       <div className="forge-card border-red-500/20 bg-red-500/5">

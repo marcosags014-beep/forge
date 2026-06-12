@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Send, Sparkles, Trash2, User, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { chatStore, generateId, getAllDataForAI, profileStore, isProUser, getOracleUsage, incrementOracleUsage, FREE_ORACLE_DAILY, calculateLifeScores, vitalsStore } from '@/lib/store'
+import { chatStore, generateId, getAllDataForAI, profileStore, isProUser, getOracleUsage, incrementOracleUsage, FREE_ORACLE_DAILY, calculateLifeScores, vitalsStore, habitsStore, goalsStore } from '@/lib/store'
 import type { ChatMessage, UserProfile } from '@/lib/types'
+import { Plus, Check, Target } from 'lucide-react'
 import Link from 'next/link'
 
 const AGENT_MODES = [
@@ -39,17 +40,95 @@ function MarkdownLine({ text }: { text: string }) {
   return <>{parts}</>
 }
 
-function OracleMessage({ content }: { content: string }) {
-  const lines = content.split('\n')
+type OracleAction =
+  | { type: 'habit'; name: string; category: 'health' | 'fitness' | 'wealth' | 'mind' }
+  | { type: 'goal'; title: string; category: 'health' | 'fitness' | 'finance' | 'career' | 'personal'; months: number }
+
+function parseOracleActions(content: string): { clean: string; actions: OracleAction[] } {
+  const actions: OracleAction[] = []
+  const habitRe = /\[ADD_HABIT:\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]/g
+  const goalRe  = /\[ADD_GOAL:\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*(\d+)\s*\]/g
+
+  let clean = content
+  let m: RegExpExecArray | null
+
+  while ((m = habitRe.exec(content)) !== null) {
+    const cat = m[2].trim().toLowerCase()
+    const habitCat = (['health','fitness','wealth','mind'].includes(cat) ? cat : 'mind') as 'health' | 'fitness' | 'wealth' | 'mind'
+    actions.push({ type: 'habit', name: m[1].trim(), category: habitCat })
+  }
+  while ((m = goalRe.exec(content)) !== null) {
+    const cat = m[2].trim().toLowerCase()
+    const goalCat = (['health','fitness','finance','career','personal'].includes(cat) ? cat : 'personal') as 'health' | 'fitness' | 'finance' | 'career' | 'personal'
+    actions.push({ type: 'goal', title: m[1].trim(), category: goalCat, months: parseInt(m[3]) || 3 })
+  }
+
+  clean = clean.replace(habitRe, '').replace(goalRe, '').replace(/\n{3,}/g, '\n\n').trim()
+  return { clean, actions }
+}
+
+function ActionButtons({ actions }: { actions: OracleAction[] }) {
+  const [added, setAdded] = useState<Set<string>>(new Set())
+
+  if (actions.length === 0) return null
+
+  function addAction(action: OracleAction) {
+    const key = action.type + ':' + (action.type === 'habit' ? action.name : action.title)
+    if (added.has(key)) return
+
+    if (action.type === 'habit') {
+      habitsStore.save({ id: generateId(), name: action.name, category: action.category, completions: [] })
+    } else {
+      const deadline = new Date()
+      deadline.setMonth(deadline.getMonth() + action.months)
+      goalsStore.save({ id: generateId(), title: action.title, category: action.category, targetDate: deadline.toISOString().split('T')[0], status: 'active', progress: 0, milestones: [] })
+    }
+    setAdded(prev => new Set([...prev, key]))
+  }
+
   return (
-    <div className="space-y-1.5 text-sm leading-relaxed">
-      {lines.map((line, i) => {
-        if (line.startsWith('## ')) return <h3 key={i} className="font-bold text-base mt-2 first:mt-0">{line.slice(3)}</h3>
-        if (line.startsWith('# '))  return <h2 key={i} className="font-bold text-lg mt-2 first:mt-0">{line.slice(2)}</h2>
-        if (line.match(/^[-*] /))   return <li key={i} className="flex gap-2 ml-1"><span className="text-primary mt-1.5 flex-shrink-0 text-[8px]">●</span><span><MarkdownLine text={line.slice(2)} /></span></li>
-        if (line.trim() === '')      return <div key={i} className="h-1" />
-        return <p key={i}><MarkdownLine text={line} /></p>
+    <div className="mt-3 flex flex-col gap-2">
+      {actions.map(action => {
+        const key = action.type + ':' + (action.type === 'habit' ? action.name : action.title)
+        const done = added.has(key)
+        const label = action.type === 'habit' ? action.name : action.title
+        const icon = action.type === 'habit' ? <Plus className="w-3.5 h-3.5" /> : <Target className="w-3.5 h-3.5" />
+        const typeLabel = action.type === 'habit' ? 'Add habit' : 'Add goal'
+        return (
+          <button
+            key={key}
+            onClick={() => addAction(action)}
+            disabled={done}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
+              done
+                ? 'bg-green-500/10 border-green-500/20 text-green-400 cursor-default'
+                : 'bg-primary/10 border-primary/20 text-primary hover:bg-primary/20'
+            }`}
+          >
+            {done ? <Check className="w-3.5 h-3.5" /> : icon}
+            <span>{done ? 'Added to FORGE' : `${typeLabel}: "${label}"`}</span>
+          </button>
+        )
       })}
+    </div>
+  )
+}
+
+function OracleMessage({ content }: { content: string }) {
+  const { clean, actions } = parseOracleActions(content)
+  const lines = clean.split('\n')
+  return (
+    <div>
+      <div className="space-y-1.5 text-sm leading-relaxed">
+        {lines.map((line, i) => {
+          if (line.startsWith('## ')) return <h3 key={i} className="font-bold text-base mt-2 first:mt-0">{line.slice(3)}</h3>
+          if (line.startsWith('# '))  return <h2 key={i} className="font-bold text-lg mt-2 first:mt-0">{line.slice(2)}</h2>
+          if (line.match(/^[-*] /))   return <li key={i} className="flex gap-2 ml-1"><span className="text-primary mt-1.5 flex-shrink-0 text-[8px]">●</span><span><MarkdownLine text={line.slice(2)} /></span></li>
+          if (line.trim() === '')      return <div key={i} className="h-1" />
+          return <p key={i}><MarkdownLine text={line} /></p>
+        })}
+      </div>
+      <ActionButtons actions={actions} />
     </div>
   )
 }
@@ -220,29 +299,60 @@ export default function OraclePage() {
           message: input.trim(),
           history: newMessages.slice(-10).map(m => ({ role: m.role, content: m.content })),
           userData,
+          stream: true,
         }),
       })
-      const data = await res.json()
-      const assistantMsg: ChatMessage = {
-        id: generateId(),
-        role: 'assistant',
-        content: data.content ?? 'I encountered an error. Please try again.',
-        timestamp: new Date().toISOString(),
+
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({ content: 'Oracle is temporarily unavailable. Please try again.' }))
+        const errMsg: ChatMessage = { id: generateId(), role: 'assistant', content: data.content, timestamp: new Date().toISOString() }
+        chatStore.addMessage(errMsg)
+        setMessages(prev => [...prev, errMsg])
+        return
       }
-      chatStore.addMessage(assistantMsg)
-      setMessages(prev => [...prev, assistantMsg])
-      // Track usage after successful response
-      if (!isPro) {
-        incrementOracleUsage()
-        setOracleUsed(prev => prev + 1)
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let accumulated = ''
+      const assistantId = generateId()
+      const timestamp = new Date().toISOString()
+      let firstChunk = true
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        accumulated += decoder.decode(value, { stream: true })
+
+        if (firstChunk) {
+          firstChunk = false
+          setLoading(false)
+          setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: accumulated, timestamp }])
+        } else {
+          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated } : m))
+        }
+      }
+
+      const finalContent = accumulated || 'Oracle encountered an error. Please try again.'
+      if (firstChunk) {
+        // Stream returned nothing — show error
+        const errMsg: ChatMessage = { id: generateId(), role: 'assistant', content: finalContent, timestamp: new Date().toISOString() }
+        chatStore.addMessage(errMsg)
+        setMessages(prev => [...prev, errMsg])
+      } else {
+        chatStore.addMessage({ id: assistantId, role: 'assistant', content: finalContent, timestamp })
+        if (!isPro) {
+          incrementOracleUsage()
+          setOracleUsed(prev => prev + 1)
+        }
       }
     } catch {
       const errMsg: ChatMessage = {
         id: generateId(),
         role: 'assistant',
-        content: 'Connection error. Make sure your ANTHROPIC_API_KEY is set in .env.local.',
+        content: 'Connection error. Please try again.',
         timestamp: new Date().toISOString(),
       }
+      chatStore.addMessage(errMsg)
       setMessages(prev => [...prev, errMsg])
     } finally {
       setLoading(false)

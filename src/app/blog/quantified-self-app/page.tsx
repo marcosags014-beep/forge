@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ArticleJsonLd } from '@/components/JsonLd'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
@@ -14,7 +15,14 @@ export const metadata: Metadata = {
 
 export default function QuantifiedSelfAppPage() {
   return (
-    <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
+    <>
+      <ArticleJsonLd
+        title="The Best Quantified Self App in 2026 (Cross-Domain AI) | FORGE"
+        description="The quantified self community has more data than ever and less synthesis than ever. The missing layer: cross-domain AI that connects your metrics."
+        url="https://forge-five-flax.vercel.app/blog/quantified-self-app"
+        datePublished="2026-01-01"
+      />
+      <article className="max-w-2xl mx-auto px-6 py-12 text-zinc-300">
       <header className="mb-10">
         <p className="text-sm text-orange-400 font-medium mb-3">Quantified Self · Data · Systems</p>
         <h1 className="text-3xl font-bold text-white leading-tight mb-4">
@@ -174,5 +182,6 @@ export default function QuantifiedSelfAppPage() {
         </div>
       </footer>
     </article>
+    </>
   )
 }
