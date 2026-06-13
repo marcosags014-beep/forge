@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { format, startOfWeek, addWeeks } from 'date-fns'
 import { ChevronLeft, ChevronRight, RefreshCw, Trophy, TrendingUp, TrendingDown, Minus, Sparkles, Lock, Share2, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts'
+import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts'
 import { calculateLifeScores, vitalsStore, workoutsStore, habitsStore, financeStore, goalsStore, getAllDataForAI, isProUser, profileStore, getAlignmentScore, alignmentHistoryStore } from '@/lib/store'
 import type { LifeScores } from '@/lib/types'
 import Link from 'next/link'
@@ -57,6 +57,7 @@ export default function ReviewPage() {
   const [alignment, setAlignment] = useState({ score: 0, habitRate: 0, keptRate: 0, overdueCount: 0 })
   const [prevAlignment, setPrevAlignment] = useState<number | null>(null)
   const [identity, setIdentity] = useState<string | null>(null)
+  const [alignmentHistory, setAlignmentHistory] = useState<{ date: string; score: number }[]>([])
 
   const weekStart = startOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 })
   const weekLabel = `Week of ${format(weekStart, 'MMM d, yyyy')}`
@@ -69,12 +70,18 @@ export default function ReviewPage() {
     setAlignment(currentAlignment)
     const profile = profileStore.get()
     setIdentity(profile?.identity ?? null)
-    // Grab last week's alignment snapshot for comparison
+    // Grab alignment history for chart + comparison
     const history = alignmentHistoryStore.getAll()
     const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
     const weekAgoStr = sevenDaysAgo.toISOString().split('T')[0]
     const weekAgoSnap = history.find(s => s.date <= weekAgoStr)
     setPrevAlignment(weekAgoSnap?.score ?? null)
+    // Prepare chart data: last 30 days, oldest first
+    const chartData = history.slice(0, 30).reverse().map(s => ({
+      date: s.date.slice(5), // MM-DD
+      score: s.score,
+    }))
+    setAlignmentHistory(chartData)
     // Compute quick local wins/improvements
     const habits = habitsStore.getAll()
     const localWins: string[] = []
@@ -260,6 +267,30 @@ export default function ReviewPage() {
             }} />
         </div>
       </div>
+
+      {/* Alignment history chart */}
+      {alignmentHistory.length > 1 && (
+        <div className="forge-card mb-6">
+          <div className="forge-label mb-3">Alignment trend — last 30 days</div>
+          <ResponsiveContainer width="100%" height={120}>
+            <AreaChart data={alignmentHistory} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+              <defs>
+                <linearGradient id="alignGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#52525b' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: '#52525b' }} tickLine={false} axisLine={false} />
+              <Tooltip
+                contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 11 }}
+                formatter={(v) => [`${v}%`, 'Alignment']}
+              />
+              <Area type="monotone" dataKey="score" stroke="#f97316" strokeWidth={2} fill="url(#alignGrad)" dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* Domain scores */}
       {scores && (

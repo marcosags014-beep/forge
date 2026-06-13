@@ -5,14 +5,14 @@ import Link from 'next/link'
 import { CheckCircle2, Activity, Sparkles, Heart, Dumbbell, TrendingUp, Brain, Share2 } from 'lucide-react'
 
 const TWEET_TEXT = encodeURIComponent(
-  "I just signed up for early access to @forgelifeos — an AI life OS that tracks health, money, fitness and goals in one place. Built different. Check it out: https://forge-five-flax.vercel.app"
+  "I've been struggling with consistency for years. Started using FORGE — it shows my Alignment Score (how much my actual behavior matches who I say I'm becoming). It's uncomfortable. That's the point. https://forge-five-flax.vercel.app"
 )
 
 const HIGHLIGHTS = [
-  { icon: Activity,   color: '#22c55e', stat: '6 domains tracked',    desc: 'Health, Body, Wealth, Mind, Journal & Oracle in one app.' },
-  { icon: Sparkles,   color: '#fb923c', stat: 'AI Oracle coach',       desc: 'One AI that reads all your data and tells you exactly what to focus on.' },
-  { icon: Brain,      color: '#a78bfa', stat: 'Alignment Score',       desc: "We don't just track goals — we measure whether you keep your word." },
-  { icon: Heart,      color: '#38bdf8', stat: '100% private',          desc: 'Your data lives on your device. No surveillance. No selling.' },
+  { icon: Brain,      color: '#a78bfa', stat: 'Alignment Score',       desc: "Not a streak counter. A measure of how closely your daily actions match the identity you've defined." },
+  { icon: Sparkles,   color: '#fb923c', stat: 'Oracle intelligence',   desc: 'Reads your sleep, workouts, spending, habits, and tells you exactly what is most misaligned with who you\'re becoming.' },
+  { icon: Activity,   color: '#22c55e', stat: 'Cross-domain patterns', desc: 'Sleep affects spending. HRV predicts your best workout days. FORGE shows the connections no single-domain app can.' },
+  { icon: Heart,      color: '#38bdf8', stat: '100% private',          desc: 'Your data lives on your device. Nothing is stored on our servers. No account required to start.' },
 ]
 
 export default function LaunchPage() {
@@ -62,12 +62,13 @@ export default function LaunchPage() {
         </div>
 
         <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight mb-5">
-          Your entire life,<br />
-          <span style={{ color: 'oklch(0.705 0.213 47.604)' }}>in one intelligent dashboard.</span>
+          The gap between who you say<br />
+          you&apos;re becoming and what<br />
+          <span style={{ color: 'oklch(0.705 0.213 47.604)' }}>your data actually shows.</span>
         </h1>
 
         <p className="text-lg text-zinc-400 max-w-2xl mx-auto mb-4 leading-relaxed">
-          We&apos;re bringing FORGE to Product Hunt. Sign up to be notified when we launch and get{' '}
+          FORGE measures your Alignment Score — how closely your daily actions match your stated identity. We&apos;re launching on Product Hunt. Sign up to be notified and get{' '}
           <span className="text-white font-semibold">free Pro access for 3 months.</span>
         </p>
 
@@ -137,7 +138,7 @@ export default function LaunchPage() {
             Tweet this
           </button>
           <p className="text-xs text-zinc-700 mt-4 max-w-sm mx-auto leading-relaxed">
-            &ldquo;I just signed up for early access to @forgelifeos — an AI life OS that tracks health, money, fitness and goals in one place.&rdquo;
+            &ldquo;I&apos;ve been struggling with consistency for years. FORGE shows my Alignment Score — how much my behavior matches who I say I&apos;m becoming. It&apos;s uncomfortable. That&apos;s the point.&rdquo;
           </p>
         </div>
       </section>
