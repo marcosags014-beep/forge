@@ -139,9 +139,20 @@ export interface Achievement {
 export interface UserProfile {
   name: string
   primaryGoal: string
-  identity?: string   // "Who I want to become" — drives Oracle context
+  identity?: string        // "I am becoming…" — drives Oracle context
+  vision?: string          // 12-month future state
+  obstacles?: string[]     // what's been stopping them
+  oracleIdentity?: string  // Oracle's distilled identity statement from onboarding
   setupComplete: boolean
   joinedAt: string
+}
+
+// ── Alignment Score History ──────────────────────────────
+export interface AlignmentSnapshot {
+  date: string   // YYYY-MM-DD
+  score: number  // 0-100
+  habitRate: number
+  keptRate: number
 }
 
 // ── Projection ──────────────────────────────────────────

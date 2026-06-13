@@ -15,9 +15,10 @@ function ReferralBlock({ referralCode, copied, setCopied }: {
   copied: boolean
   setCopied: (v: boolean) => void
 }) {
-  const referralLink = `https://forge-five-flax.vercel.app/?ref=${referralCode}`
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://forge-five-flax.vercel.app'
+  const referralLink = `${origin}/?ref=${referralCode}`
   const tweetText = encodeURIComponent(
-    `I track my health, fitness, finances and goals in one app — FORGE. It's free and the AI is actually useful: https://forge-five-flax.vercel.app/?ref=${referralCode}`
+    `I track my health, fitness, finances and goals in one app — FORGE. It's free and the AI is actually useful: ${origin}/?ref=${referralCode}`
   )
 
   return (
@@ -141,7 +142,10 @@ export default function SettingsPage() {
     setSyncStep('loading')
     const { error } = await supabase.auth.signInWithOtp({
       email: syncEmail.trim(),
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     })
     setSyncStep(error ? 'idle' : 'sent')
   }

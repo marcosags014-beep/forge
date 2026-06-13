@@ -5,7 +5,7 @@ import { format, startOfWeek, addWeeks } from 'date-fns'
 import { ChevronLeft, ChevronRight, RefreshCw, Trophy, TrendingUp, TrendingDown, Minus, Sparkles, Lock, Share2, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts'
-import { calculateLifeScores, vitalsStore, workoutsStore, habitsStore, financeStore, goalsStore, getAllDataForAI, isProUser } from '@/lib/store'
+import { calculateLifeScores, vitalsStore, workoutsStore, habitsStore, financeStore, goalsStore, getAllDataForAI, isProUser, profileStore, getAlignmentScore, alignmentHistoryStore } from '@/lib/store'
 import type { LifeScores } from '@/lib/types'
 import Link from 'next/link'
 
@@ -54,6 +54,9 @@ export default function ReviewPage() {
   const [generating, setGenerating] = useState(false)
   const [isPro, setIsPro] = useState(false)
   const [shared, setShared] = useState(false)
+  const [alignment, setAlignment] = useState({ score: 0, habitRate: 0, keptRate: 0, overdueCount: 0 })
+  const [prevAlignment, setPrevAlignment] = useState<number | null>(null)
+  const [identity, setIdentity] = useState<string | null>(null)
 
   const weekStart = startOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 })
   const weekLabel = `Week of ${format(weekStart, 'MMM d, yyyy')}`
@@ -62,6 +65,16 @@ export default function ReviewPage() {
   useEffect(() => {
     setIsPro(isProUser())
     setScores(calculateLifeScores())
+    const currentAlignment = getAlignmentScore()
+    setAlignment(currentAlignment)
+    const profile = profileStore.get()
+    setIdentity(profile?.identity ?? null)
+    // Grab last week's alignment snapshot for comparison
+    const history = alignmentHistoryStore.getAll()
+    const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    const weekAgoStr = sevenDaysAgo.toISOString().split('T')[0]
+    const weekAgoSnap = history.find(s => s.date <= weekAgoStr)
+    setPrevAlignment(weekAgoSnap?.score ?? null)
     // Compute quick local wins/improvements
     const habits = habitsStore.getAll()
     const localWins: string[] = []
@@ -98,21 +111,28 @@ export default function ReviewPage() {
 
   async function shareWeek() {
     if (!scores) return
-    const overall = Math.round((scores.health.score + scores.body.score + scores.wealth.score + scores.mind.score) / 4)
+    const alignmentDelta = prevAlignment !== null ? alignment.score - prevAlignment : null
+    const deltaStr = alignmentDelta !== null
+      ? ` (${alignmentDelta >= 0 ? '+' : ''}${alignmentDelta}% vs last week)`
+      : ''
     const lines = [
-      `FORGE Weekly Review — ${weekLabel}`,
+      `FORGE Weekly Transformation Report — ${weekLabel}`,
       ``,
-      `Life Score: ${overall}/100`,
-      `  Health  ${scores.health.score}  Body  ${scores.body.score}  Wealth  ${scores.wealth.score}  Mind  ${scores.mind.score}`,
+      `Alignment Score: ${alignment.score}%${deltaStr}`,
+      `Habits: ${alignment.habitRate}% · Commitments: ${alignment.keptRate}%`,
       ``,
-      ...(wins.length ? [`Wins:`, ...wins.map(w => `• ${w}`), ``] : []),
-      ...(improvements.length ? [`Focus:`, ...improvements.map(i => `• ${i}`), ``] : []),
-      `Track your life at forge — your personal performance OS.`,
+      `Life Score breakdown:`,
+      `  ❤️ Health  ${scores.health.score}  💪 Body  ${scores.body.score}  💰 Wealth  ${scores.wealth.score}  🧠 Mind  ${scores.mind.score}`,
+      ``,
+      ...(wins.length ? [`Wins this week:`, ...wins.map(w => `✓ ${w}`), ``] : []),
+      ...(nextWeek.length ? [`Next week focus:`, ...nextWeek.map((f, i) => `${i + 1}. ${f}`), ``] : []),
+      `Becoming the person I know I could be — one week at a time.`,
+      `forge-five-flax.vercel.app`,
     ]
     const text = lines.join('\n')
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'My FORGE Weekly Review', text })
+        await navigator.share({ title: 'My FORGE Weekly Transformation Report', text })
       } catch { /* cancelled */ }
     } else {
       await navigator.clipboard.writeText(text)
@@ -132,9 +152,9 @@ export default function ReviewPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: 'review',
-          message: `Generate a weekly performance review for ${weekLabel}. Return a JSON object with keys: "narrative" (150-200 word direct coach assessment, reference specific numbers), "wins" (array of 2-4 strings), "improvements" (array of 2-3 strings), "nextWeek" (array of 3 focus areas for next week). Return ONLY the JSON.`,
+          message: `Generate a weekly transformation review for ${weekLabel}. The user's identity: "${identity ?? 'becoming their best self'}". Alignment this week: ${alignment.score}% (habits: ${alignment.habitRate}%, commitments: ${alignment.keptRate}%). Return a JSON object with keys: "narrative" (150-200 words — direct coach assessment, reference the alignment score and their identity, name specific gaps), "wins" (array of 2-4 strings — what aligned with their identity), "improvements" (array of 2-3 strings — what was most misaligned), "nextWeek" (array of 3 focus areas that will raise alignment most). Return ONLY the JSON.`,
           userData,
-          agentPrompt: 'You are a high-performance coach delivering a frank, data-driven weekly review. No fluff. Be specific. Reference actual numbers from the data.',
+          agentPrompt: 'You are a direct identity coach. Your job is not to praise — it is to show the gap between who this person says they\'re becoming and what their data shows. Be specific. Name numbers. Be kind but honest.',
         }),
       })
       const data = await res.json()
@@ -164,10 +184,10 @@ export default function ReviewPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <p className="forge-label mb-1">Performance Analytics</p>
-          <h1 className="text-3xl font-bold text-gradient">Weekly Review</h1>
+          <p className="forge-label mb-1">Identity Progress</p>
+          <h1 className="text-3xl font-bold text-gradient">Transformation Report</h1>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setWeekOffset(w => w - 1)} className="p-2 rounded-lg bg-secondary hover:bg-card border border-border transition-colors">
@@ -185,6 +205,59 @@ export default function ReviewPage() {
               {shared ? 'Copied!' : 'Share'}
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Identity reminder */}
+      {identity && (
+        <div className="px-4 py-3 rounded-xl border border-primary/15 bg-primary/5 mb-6">
+          <p className="text-[10px] text-primary uppercase tracking-widest font-semibold mb-0.5">You&apos;re becoming</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">{identity}</p>
+        </div>
+      )}
+
+      {/* Alignment Score hero */}
+      <div className="forge-card mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="forge-label mb-1">Alignment Score</p>
+            <div className="flex items-baseline gap-2">
+              <span className={`text-4xl font-black tabular-nums ${alignment.score >= 80 ? 'text-green-400' : alignment.score >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                {alignment.score}%
+              </span>
+              {prevAlignment !== null && (() => {
+                const delta = alignment.score - prevAlignment
+                return (
+                  <span className={`text-sm font-semibold flex items-center gap-0.5 ${delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-muted-foreground'}`}>
+                    {delta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : delta < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
+                    {delta > 0 ? '+' : ''}{delta}% vs last week
+                  </span>
+                )
+              })()}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Habits {alignment.habitRate}% · Commitments {alignment.keptRate}%</p>
+          </div>
+          <div className="text-right">
+            <div className="h-16 w-16 relative flex items-center justify-center">
+              <svg width="64" height="64" className="-rotate-90">
+                <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="6" />
+                <circle cx="32" cy="32" r="28" fill="none"
+                  stroke={alignment.score >= 80 ? '#22c55e' : alignment.score >= 60 ? '#f59e0b' : '#ef4444'}
+                  strokeWidth="6" strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 28}
+                  strokeDashoffset={2 * Math.PI * 28 - (alignment.score / 100) * 2 * Math.PI * 28}
+                  style={{ transition: 'stroke-dashoffset 1s ease' }} />
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 h-2 bg-secondary rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-1000"
+            style={{
+              width: `${alignment.score}%`,
+              backgroundColor: alignment.score >= 80 ? '#22c55e' : alignment.score >= 60 ? '#f59e0b' : '#ef4444',
+              boxShadow: `0 0 6px ${alignment.score >= 80 ? '#22c55e55' : alignment.score >= 60 ? '#f59e0b55' : '#ef444455'}`,
+            }} />
         </div>
       </div>
 

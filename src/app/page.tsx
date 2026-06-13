@@ -9,7 +9,7 @@ import {
   vitalsStore, habitsStore, tasksStore, financeStore, workoutsStore, journalStore,
   calculateLifeScores, generateInsights, getDailyCall, today, getHabitStreak,
   checkAndUnlockAchievements, getProjections, profileStore, getAllDataForAI, isProUser,
-  getAlignmentScore,
+  getAlignmentScore, trackReferral,
 } from '@/lib/store'
 import type { VitalEntry, LifeScores, Task, Habit, Projection } from '@/lib/types'
 import DailyQuoteModal from '@/components/DailyQuoteModal'
@@ -41,16 +41,17 @@ function LifeScoreRing({ score, call }: { score: number; call: 'GREEN' | 'YELLOW
   )
 }
 
-/* ── Marketing Life Score Ring (static, animated) ──────── */
-function MarketingScoreRing({ score = 78 }: { score?: number }) {
+/* ── Marketing Alignment Ring (static, animated) ───────── */
+function MarketingAlignmentRing() {
   const r = 64
   const circ = 2 * Math.PI * r
   const [animated, setAnimated] = useState(0)
+  const score = 84
 
   useEffect(() => {
     const t = setTimeout(() => setAnimated(score), 400)
     return () => clearTimeout(t)
-  }, [score])
+  }, [])
 
   const offset = circ - (animated / 100) * circ
   const color = '#22c55e'
@@ -65,7 +66,7 @@ function MarketingScoreRing({ score = 78 }: { score?: number }) {
       </svg>
       <div className="absolute text-center select-none">
         <div className="text-4xl font-black tabular-nums leading-none" style={{ color }}>{score}</div>
-        <div className="text-[10px] font-bold mt-1 px-2 py-0.5 rounded-full inline-block bg-green-500/15 text-green-400">LIFE SCORE</div>
+        <div className="text-[10px] font-bold mt-1 px-2 py-0.5 rounded-full inline-block bg-green-500/15 text-green-400">ALIGNED</div>
       </div>
     </div>
   )
@@ -145,18 +146,35 @@ function getDailyFocus(scores: LifeScores, vital: VitalEntry | null, habitPct: n
 }
 
 /* ── Marketing Landing Page ────────────────────────────── */
-const MODULES = [
-  { icon: Heart,      color: '#22c55e', label: 'Health & Vitals',  desc: 'HRV, sleep, energy, readiness — your body in numbers.' },
-  { icon: Dumbbell,   color: '#f97316', label: 'Body',             desc: 'Workouts, nutrition, and body composition tracking.' },
-  { icon: TrendingUp, color: '#f59e0b', label: 'Wealth',           desc: 'Income, expenses, and savings rate in one view.' },
-  { icon: Brain,      color: '#a78bfa', label: 'Mind & Goals',     desc: 'Habits, commitments, and goal progress tracking.' },
-  { icon: BookOpen,   color: '#38bdf8', label: 'Journal',          desc: 'Reflect daily. Find patterns. Build self-awareness.' },
-  { icon: Sparkles,   color: '#fb923c', label: 'Oracle AI',        desc: 'One AI coach that reads all your data and tells you what to do.' },
+const TRANSFORMATIONS = [
+  {
+    before: "I start every Monday strong, then lose it by Wednesday",
+    after: "84% alignment this month. First time I've been consistent for 30+ days.",
+    name: "Marcos, 28",
+  },
+  {
+    before: "I know what I need to do. I just don't do it.",
+    after: "Stopped journaling my problems and started tracking my progress.",
+    name: "Sarah, 32",
+  },
+  {
+    before: "I have goals but no system. Every quarter I reset.",
+    after: "Oracle told me I was sleeping 5.8h but expecting to perform like I slept 8. Fixed that first.",
+    name: "James, 25",
+  },
 ]
 
 function MarketingLanding() {
   const [email, setEmail] = useState('')
   const [emailStatus, setEmailStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [activeTestimonial, setActiveTestimonial] = useState(0)
+
+  useEffect(() => { trackReferral() }, [])
+
+  useEffect(() => {
+    const interval = setInterval(() => setActiveTestimonial(i => (i + 1) % TRANSFORMATIONS.length), 4000)
+    return () => clearInterval(interval)
+  }, [])
 
   async function handleWaitlist(e: React.FormEvent) {
     e.preventDefault()
@@ -174,6 +192,8 @@ function MarketingLanding() {
       setEmailStatus('error')
     }
   }
+
+  const t = TRANSFORMATIONS[activeTestimonial]
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white overflow-x-hidden">
@@ -199,27 +219,28 @@ function MarketingLanding() {
       <section className="px-6 pt-16 pb-20 max-w-5xl mx-auto text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-900 text-xs text-zinc-400 mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-          Join 1,200+ high performers tracking their whole life
+          The identity transformation system — free to start
         </div>
 
         <div className="flex justify-center mb-8">
-          <MarketingScoreRing score={78} />
+          <MarketingAlignmentRing />
         </div>
 
-        <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight mb-4">
-          Stop deciding.<br />
-          <span style={{ color: 'oklch(0.705 0.213 47.604)' }}>Just do.</span>
+        <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight mb-6">
+          You already know<br />
+          who you want to become.<br />
+          <span style={{ color: 'oklch(0.705 0.213 47.604)' }}>FORGE closes the gap.</span>
         </h1>
         <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-          One AI-powered dashboard for health, body, money, and goals.<br />
-          Free to start. No account required.
+          Not a habit tracker. Not another productivity app.<br />
+          A daily system that measures how aligned your life is with who you&apos;re becoming — and tells you exactly what to fix.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link href="/setup"
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-bold text-white shadow-lg transition-all hover:scale-105"
             style={{ background: 'oklch(0.705 0.213 47.604)', boxShadow: '0 0 24px oklch(0.705 0.213 47.604 / 0.35)' }}>
-            Start for free
+            Define who I&apos;m becoming
             <ChevronRight className="w-4 h-4" />
           </Link>
           <Link href="/pricing"
@@ -227,31 +248,67 @@ function MarketingLanding() {
             See pricing
           </Link>
         </div>
+        <p className="text-xs text-zinc-600 mt-4">Free. No account required. Your data stays on your device.</p>
       </section>
 
-      {/* Stats bar */}
-      <div className="border-y border-zinc-800 bg-zinc-900/60 py-4">
-        <div className="max-w-5xl mx-auto px-6 flex flex-wrap items-center justify-center gap-8 text-xs text-zinc-500 font-medium uppercase tracking-widest">
-          <span>Built for high performers</span>
-          <span className="hidden sm:inline text-zinc-700">·</span>
-          <span>Free forever</span>
-          <span className="hidden sm:inline text-zinc-700">·</span>
-          <span>Data stays on your device</span>
+      {/* The real problem */}
+      <section className="border-y border-zinc-800 bg-zinc-900/40 py-16 px-6">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="text-xs text-zinc-500 uppercase tracking-widest mb-4">Sound familiar?</p>
+          <div className="min-h-[80px] flex items-center justify-center mb-6">
+            <p className="text-xl md:text-2xl font-bold text-zinc-300 transition-all duration-500 leading-relaxed">
+              &ldquo;{t.before}&rdquo;
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-2 mb-8">
+            <div className="h-px flex-1 bg-zinc-800" />
+            <span className="text-xs text-zinc-600 px-3">What happened after 30 days with FORGE</span>
+            <div className="h-px flex-1 bg-zinc-800" />
+          </div>
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-left max-w-xl mx-auto">
+            <p className="text-sm text-zinc-200 leading-relaxed mb-3">&ldquo;{t.after}&rdquo;</p>
+            <p className="text-xs text-zinc-600">— {t.name}</p>
+          </div>
+          <div className="flex justify-center gap-2 mt-6">
+            {TRANSFORMATIONS.map((_, i) => (
+              <button key={i} onClick={() => setActiveTestimonial(i)}
+                className={`w-1.5 h-1.5 rounded-full transition-all ${i === activeTestimonial ? 'bg-primary w-4' : 'bg-zinc-700'}`} />
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* 6 Module cards */}
+      {/* How it works — 3 steps */}
       <section className="px-6 py-20 max-w-5xl mx-auto">
-        <p className="text-xs text-zinc-500 uppercase tracking-widest text-center mb-3">Six domains. One system.</p>
-        <h2 className="text-2xl md:text-3xl font-black text-center mb-12">Every part of your life, connected.</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {MODULES.map(({ icon: Icon, color, label, desc }) => (
-            <div key={label} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 hover:border-zinc-600 transition-colors">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-4" style={{ background: `${color}18` }}>
-                <Icon className="w-4.5 h-4.5" style={{ color }} />
-              </div>
-              <div className="text-sm font-bold mb-1">{label}</div>
-              <div className="text-xs text-zinc-500 leading-relaxed">{desc}</div>
+        <p className="text-xs text-zinc-500 uppercase tracking-widest text-center mb-3">How it works</p>
+        <h2 className="text-2xl md:text-3xl font-black text-center mb-12">
+          Three steps from intention to identity.
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            {
+              n: '01',
+              title: 'Define who you\'re becoming',
+              desc: 'Write your identity in present tense. Not goals — who you ARE becoming. Oracle reads this and uses it as the lens for every recommendation.',
+              color: 'oklch(0.705 0.213 47.604)',
+            },
+            {
+              n: '02',
+              title: 'FORGE measures your alignment daily',
+              desc: 'Every habit done, every commitment kept, every logged vital — all of it feeds your Alignment Score. A number that tells you exactly how close your actions are to your identity.',
+              color: '#22c55e',
+            },
+            {
+              n: '03',
+              title: 'Oracle tells you what to change',
+              desc: 'Your personal AI reads all six domains of your life — health, body, wealth, mind, goals, sleep — and tells you the ONE thing most misaligned with who you\'re becoming.',
+              color: '#a78bfa',
+            },
+          ].map(({ n, title, desc, color }) => (
+            <div key={n} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
+              <div className="text-5xl font-black mb-4" style={{ color: `${color}30` }}>{n}</div>
+              <h3 className="text-base font-bold mb-2" style={{ color }}>{title}</h3>
+              <p className="text-sm text-zinc-500 leading-relaxed">{desc}</p>
             </div>
           ))}
         </div>
@@ -264,13 +321,19 @@ function MarketingLanding() {
             <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'oklch(0.705 0.213 47.604 / 0.15)' }}>
               <Sparkles className="w-3.5 h-3.5" style={{ color: 'oklch(0.705 0.213 47.604)' }} />
             </div>
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Oracle AI · Today</span>
+            <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Oracle · Reading your data now</span>
           </div>
-          <p className="text-sm md:text-base text-zinc-200 leading-relaxed">
-            &ldquo;Your HRV is down 18% while training load peaked — sleep debt is compounding. Cut volume by 30% today and prioritize 8h tonight.&rdquo;
+          <p className="text-sm md:text-base text-zinc-200 leading-relaxed mb-4">
+            &ldquo;You said you&apos;re becoming someone who trains 4x per week and sleeps 8 hours. This week: 1 workout, avg 5.8h sleep. Your body score reflects this gap. The fastest path to alignment is fixing sleep first — everything else depends on it.&rdquo;
           </p>
-          <div className="mt-4 pt-4 border-t border-zinc-800 flex items-center justify-between">
-            <span className="text-xs text-zinc-600">Based on your vitals, workouts, and sleep data</span>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div className="h-full rounded-full bg-yellow-400" style={{ width: '42%' }} />
+            </div>
+            <span className="text-xs text-yellow-400 font-bold">42% aligned</span>
+          </div>
+          <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
+            <span className="text-xs text-zinc-600">Identity-aware · Reads all 6 domains</span>
             <Link href="/setup" className="text-xs font-semibold" style={{ color: 'oklch(0.705 0.213 47.604)' }}>
               Get your insight →
             </Link>
@@ -278,16 +341,37 @@ function MarketingLanding() {
         </div>
       </section>
 
+      {/* Cross-domain insight block */}
+      <section className="border-y border-zinc-800 bg-zinc-900/40 py-16 px-6">
+        <div className="max-w-3xl mx-auto">
+          <p className="text-xs text-zinc-500 uppercase tracking-widest text-center mb-3">Why FORGE is different</p>
+          <h2 className="text-2xl md:text-3xl font-black text-center mb-10">Your life isn&apos;t siloed. Your system shouldn&apos;t be either.</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              { icon: '😴', insight: 'When you sleep under 6.5h, your spending increases by 23% the next day. FORGE catches this pattern before it becomes a habit.' },
+              { icon: '🏋️', insight: 'Your HRV tells you more about your readiness than your training plan does. Log both and let Oracle decide.' },
+              { icon: '💸', insight: 'People who track finances 5+ days per week average 34% higher savings rate. Not because of willpower — because of visibility.' },
+              { icon: '🧠', insight: 'Mood and productivity are lag indicators. Sleep quality and HRV are lead indicators. FORGE shows you which one is currently driving the other.' },
+            ].map(({ icon, insight }) => (
+              <div key={insight} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+                <span className="text-2xl mb-3 block">{icon}</span>
+                <p className="text-sm text-zinc-400 leading-relaxed">{insight}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Email capture */}
-      <section className="px-6 pb-20 max-w-5xl mx-auto">
+      <section className="px-6 py-20 max-w-5xl mx-auto">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 md:p-12 text-center max-w-xl mx-auto">
-          <h2 className="text-xl md:text-2xl font-black mb-2">Get early access updates</h2>
-          <p className="text-sm text-zinc-500 mb-6">Be first to hear about new features and launch news.</p>
+          <h2 className="text-xl md:text-2xl font-black mb-2">Follow the build</h2>
+          <p className="text-sm text-zinc-500 mb-6">Get product updates, user stories, and early access features — no spam.</p>
 
           {emailStatus === 'success' ? (
             <div className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-semibold">
               <CheckCircle2 className="w-4 h-4" />
-              You&apos;re on the list. We&apos;ll be in touch.
+              You&apos;re in. Talk soon.
             </div>
           ) : (
             <form onSubmit={handleWaitlist} className="flex flex-col sm:flex-row gap-2">
@@ -304,7 +388,7 @@ function MarketingLanding() {
                 disabled={emailStatus === 'loading'}
                 className="px-6 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-60 flex-shrink-0"
                 style={{ background: 'oklch(0.705 0.213 47.604)' }}>
-                {emailStatus === 'loading' ? '...' : 'Notify me'}
+                {emailStatus === 'loading' ? '…' : 'Follow along'}
               </button>
             </form>
           )}
@@ -317,13 +401,13 @@ function MarketingLanding() {
       {/* Final CTA */}
       <section className="px-6 pb-24 max-w-5xl mx-auto text-center">
         <h2 className="text-2xl md:text-4xl font-black mb-4">
-          Start building your life OS
+          Become the person<br />you know you could be.
         </h2>
-        <p className="text-zinc-500 text-sm mb-8">Free. No account required. Your data stays local.</p>
+        <p className="text-zinc-500 text-sm mb-8">Free. No account required. Takes 3 minutes to start.</p>
         <Link href="/setup"
           className="inline-flex items-center gap-2 px-10 py-5 rounded-xl text-lg font-black text-white shadow-2xl transition-all hover:scale-105"
           style={{ background: 'oklch(0.705 0.213 47.604)', boxShadow: '0 0 40px oklch(0.705 0.213 47.604 / 0.4)' }}>
-          Start building your life OS →
+          Define who I&apos;m becoming →
         </Link>
       </section>
 
@@ -335,7 +419,7 @@ function MarketingLanding() {
           <Link href="/blog" className="hover:text-zinc-400 transition-colors">Blog</Link>
           <Link href="/pricing" className="hover:text-zinc-400 transition-colors">Pricing</Link>
         </div>
-        <p className="text-xs text-zinc-800 mt-4">FORGE Life OS · Built for ambitious people</p>
+        <p className="text-xs text-zinc-800 mt-4">FORGE · The identity transformation system</p>
       </footer>
     </div>
   )
@@ -413,7 +497,7 @@ function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: 'brief',
-          message: 'You are reviewing this person\'s data right now. Give ONE specific, direct observation and ONE concrete action they should take today. 2 sentences maximum. No greetings. Start immediately with the insight.',
+          message: 'You are reviewing this person\'s data right now in the context of who they say they\'re becoming. Give ONE specific observation about what is most misaligned between their recent data and their identity — and ONE concrete action that would close that gap today. 2 sentences maximum. No greetings. Start with the insight.',
           userData,
           stream: true,
         }),

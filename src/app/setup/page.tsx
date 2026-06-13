@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Flame, Sparkles, ChevronRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { profileStore, habitsStore, goalsStore, generateId } from '@/lib/store'
+import { profileStore, habitsStore, goalsStore, generateId, logReferralOnSetupComplete, alignmentHistoryStore } from '@/lib/store'
 import { Analytics } from '@/lib/analytics'
 
 const OBSTACLE_CHIPS = [
@@ -124,11 +124,16 @@ Return ONLY the JSON. No markdown, no explanation.`,
   }
 
   function finish() {
-    // Save profile
+    const allObstacles = [...obstacles, customObstacle].filter(Boolean)
+
+    // Save profile with full onboarding data
     profileStore.save({
       name: name.trim() || 'You',
       primaryGoal: identity.slice(0, 60) || 'performance',
       identity: identity.trim() || undefined,
+      vision: vision.trim() || undefined,
+      obstacles: allObstacles.length > 0 ? allObstacles : undefined,
+      oracleIdentity: profile?.identityStatement || undefined,
       setupComplete: true,
       joinedAt: new Date().toISOString(),
     })
@@ -152,6 +157,8 @@ Return ONLY the JSON. No markdown, no explanation.`,
       })
     }
 
+    alignmentHistoryStore.record()
+    logReferralOnSetupComplete()
     Analytics.onboardingCompleted({ focus: identity.slice(0, 40) })
     router.push('/')
   }

@@ -11,14 +11,27 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     if (!supabase) { router.replace('/settings'); return }
 
-    const code = new URLSearchParams(window.location.search).get('code')
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code)
-        .then(() => router.replace('/settings'))
-        .catch(() => router.replace('/settings'))
-    } else {
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('code')
+    const tokenHash = params.get('token_hash')
+    const type = params.get('type') as 'email' | 'recovery' | 'magiclink' | null
+
+    async function handleCallback() {
+      try {
+        if (code) {
+          // OAuth PKCE flow (Google, etc.)
+          await supabase!.auth.exchangeCodeForSession(code)
+        } else if (tokenHash && type) {
+          // Magic link / OTP flow
+          await supabase!.auth.verifyOtp({ token_hash: tokenHash, type })
+        }
+      } catch {
+        // Session may already be set via URL fragment — Supabase handles it
+      }
       router.replace('/settings')
     }
+
+    handleCallback()
   }, [router])
 
   return (

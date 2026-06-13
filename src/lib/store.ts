@@ -1,7 +1,8 @@
 import type {
   VitalEntry, WorkoutEntry, NutritionEntry, BodyMetric,
   Transaction, Goal, Habit, Task, ChatMessage,
-  LifeScores, InsightCard, Achievement, UserProfile, JournalEntry, Projection, TimelineEntry
+  LifeScores, InsightCard, Achievement, UserProfile, JournalEntry, Projection, TimelineEntry,
+  AlignmentSnapshot
 } from './types'
 
 // ── Core store helpers ───────────────────────────────────
@@ -252,20 +253,34 @@ export function getAlignmentScore(): { score: number; habitRate: number; keptRat
 
   const allTasks = getStore<Task>('tasks')
   const todayStr = today()
-  // Commitments made before today are either kept (completed) or broken (still open)
   const pastCommitments = allTasks.filter(t => t.createdAt && t.createdAt < todayStr)
   const keptCount = pastCommitments.filter(t => t.completed).length
   const overdueCount = pastCommitments.filter(t => !t.completed).length
   const taskTotal = keptCount + overdueCount
   const keptRate = taskTotal > 0 ? Math.round((keptCount / taskTotal) * 100) : 100
 
-  // Blend: habits drive 60% (recurring), tasks 40% (one-off commitments)
-  // If no tasks exist yet, only count habits
   const score = taskTotal === 0
     ? habitRate
     : Math.round(habitRate * 0.6 + keptRate * 0.4)
 
   return { score, habitRate, keptRate, overdueCount }
+}
+
+// ── Alignment Score History ──────────────────────────────
+export const alignmentHistoryStore = {
+  getAll: () => getStore<AlignmentSnapshot>('alignment_history'),
+  getRecent: (days: number) => getStore<AlignmentSnapshot>('alignment_history').slice(0, days),
+  record: () => {
+    const { score, habitRate, keptRate } = getAlignmentScore()
+    const todayStr = today()
+    const all = getStore<AlignmentSnapshot>('alignment_history')
+    const idx = all.findIndex(s => s.date === todayStr)
+    const snap: AlignmentSnapshot = { date: todayStr, score, habitRate, keptRate }
+    if (idx >= 0) all[idx] = snap; else all.unshift(snap)
+    if (all.length > 90) all.length = 90
+    setStore('alignment_history', all)
+    return snap
+  },
 }
 
 // ── Computed scores ──────────────────────────────────────
