@@ -336,27 +336,27 @@ function NutritionTracker() {
 
   return (
     <div className="space-y-4">
-      {/* Photo log — prominent on mobile */}
+      {/* Photo log — label wraps input directly for iOS Safari compatibility */}
       <div className="forge-card space-y-3">
         <span className="forge-label flex items-center gap-2"><Camera className="w-3.5 h-3.5" />Log Food by Photo</span>
-        <input
-          ref={photoInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) analyzePhoto(f) }}
-        />
-        <button
-          onClick={() => photoInputRef.current?.click()}
-          disabled={analyzing}
-          className="w-full flex items-center justify-center gap-3 py-4 rounded-xl border-2 border-dashed border-primary/30 hover:border-primary/60 hover:bg-primary/5 transition-all active:scale-95"
-        >
-          {analyzing
-            ? <><RefreshCw className="w-5 h-5 text-primary animate-spin" /><span className="text-sm font-medium text-primary">Analyzing…</span></>
-            : <><Camera className="w-5 h-5 text-primary" /><span className="text-sm font-medium text-primary">Take photo or upload food</span></>
-          }
-        </button>
+        {analyzing ? (
+          <div className="w-full flex items-center justify-center gap-3 py-4 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5">
+            <RefreshCw className="w-5 h-5 text-primary animate-spin" />
+            <span className="text-sm font-medium text-primary">Analyzing…</span>
+          </div>
+        ) : (
+          <label className="w-full flex items-center justify-center gap-3 py-4 rounded-xl border-2 border-dashed border-primary/30 hover:border-primary/60 hover:bg-primary/5 transition-all active:scale-95 cursor-pointer">
+            <Camera className="w-5 h-5 text-primary" />
+            <span className="text-sm font-medium text-primary">Take photo or upload food</span>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) analyzePhoto(f) }}
+            />
+          </label>
+        )}
         {analyzeResult && (
           <div className={`px-3 py-2 rounded-xl border text-xs ${
             analyzeResult.confidence === 'high' ? 'bg-green-500/10 border-green-500/20 text-green-400'
