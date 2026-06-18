@@ -230,8 +230,8 @@ Return ONLY the JSON. No markdown, no explanation.`,
           <span className="text-2xl font-bold tracking-tight">FORGE</span>
         </div>
 
-        {/* Returning user shortcut — only show on step 1 and if Supabase is configured */}
-        {step === 1 && supabase && (
+        {/* Returning user shortcut — only show on step 1 */}
+        {step === 1 && (
           <div className="mb-8 text-center">
             <p className="text-xs text-muted-foreground mb-3">Already have an account?</p>
             <button
