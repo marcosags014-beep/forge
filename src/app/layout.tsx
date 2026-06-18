@@ -49,21 +49,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         <script dangerouslySetInnerHTML={{ __html: `
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('/sw.js').then(reg=>{
-    reg.addEventListener('updatefound',()=>{
-      const sw=reg.installing;
-      if(!sw)return;
-      sw.addEventListener('statechange',()=>{
-        if(sw.state==='activated'){window.location.reload()}
-      });
-    });
-    // Check for updates every 60s
-    setInterval(()=>reg.update(),60000);
-  });
-  // If SW controls the page and posts a RELOAD message, reload
+  // Listen for RELOAD from the cleanup SW, then stop registering any SW
   navigator.serviceWorker.addEventListener('message',e=>{
     if(e.data==='RELOAD')window.location.reload();
   });
+  // Register cleanup SW once — it will unregister itself after wiping all caches
+  navigator.serviceWorker.register('/sw.js').catch(()=>{});
 }
 ` }} />
       </head>
