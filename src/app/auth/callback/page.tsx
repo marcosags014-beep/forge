@@ -28,6 +28,13 @@ export default function AuthCallbackPage() {
         // Session may already be set via URL fragment
       }
 
+      // Pull cloud data before deciding destination so returning users on a new
+      // device get their profile (including setupComplete) restored immediately.
+      try {
+        const { syncOnSignIn } = await import('@/lib/sync')
+        await syncOnSignIn()
+      } catch {}
+
       // Where to go after auth:
       // 1. Use the saved return URL if present (set before OAuth redirect)
       // 2. Fall back to '/' if the user has a completed profile
