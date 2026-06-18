@@ -998,33 +998,49 @@ export const netWorthStore = {
 }
 
 export function getAllDataForAI() {
-  const vitals = vitalsStore.getRecent(7)
-  const workouts = workoutsStore.getRecent(7)
-  const finance = financeStore.getAll()
+  const vitals = vitalsStore.getRecent(14)
+  const workouts = workoutsStore.getRecent(14)
+  const finance = financeStore.getAll().slice(0, 60)
   const profile = profileStore.get()
   const alignment = getAlignmentScore()
-  const todayVital = vitals.find(v => v.date === today())
+  const todayStr = today()
+  const todayVital = vitals.find(v => v.date === todayStr)
   const feelingCorrelations = getFeelingCorrelations()
   const bodyHistory = bodyStore.getAll().slice(0, 30)
   const measurementsHistory = bodyMeasurementsStore.getRecent(10)
   const recentPhotos = bodyPhotosStore.getRecent(5).map(p => ({ id: p.id, date: p.date, analysisSnippet: p.analysis?.slice(0, 200) }))
+  const allHabits = habitsStore.getAll()
+  const allGoals = goalsStore.getAll()
+  const allTasks = tasksStore.getAll().slice(0, 30)
+  const journalEntries = journalStore.getAll().slice(0, 7)
+  const todayTimeline = timelineStore.getForDate(todayStr)
+  const nutritionHistory = nutritionStore.getAll().slice(0, 14)
   return {
     profile,
     isNewUser: vitals.length === 0 && workouts.length === 0 && finance.length === 0,
+    today: todayStr,
     vitals,
+    todayVitals: todayVital ?? null,
     workouts,
     nutrition: nutritionStore.getLast(),
+    nutritionHistory,
     body: bodyStore.getLast(),
     bodyHistory,
     measurementsHistory,
     recentBodyPhotos: recentPhotos,
     balance: financeStore.getBalance(),
     savingsRate: financeStore.getSavingsRate(),
-    goals: goalsStore.getAll(),
-    habits: habitsStore.getAll(),
-    commitments: tasksStore.getAll().filter(t => !t.completed).slice(0, 10),
+    financeTransactions: finance,
+    goals: allGoals,
+    habits: allHabits,
+    habitsCompletedToday: allHabits.filter(h => h.completions.includes(todayStr)).map(h => h.name),
+    habitsMissedToday: allHabits.filter(h => !h.completions.includes(todayStr)).map(h => h.name),
+    tasks: allTasks,
+    commitments: allTasks.filter(t => !t.completed).slice(0, 10),
     overdueCommitments: tasksStore.getOverdue().map(t => t.title),
-    lastJournalEntry: journalStore.getLast(),
+    journalEntries,
+    lastJournalEntry: journalEntries[0] ?? null,
+    todayTimeline,
     alignment,
     lifeScores: calculateLifeScores(),
     insights: generateInsights().slice(0, 5),

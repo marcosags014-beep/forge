@@ -68,6 +68,40 @@ When the user asks you to create a nutrition plan, set daily macro targets, or s
 Example: [NUTRITION_PLAN: 2400 | 190 | 250 | 80 | 3.0 | High-protein muscle gain: carb-cycle on training days]
 Base numbers on: current body weight (kg), body fat %, weight trajectory over time (gaining/losing/stable), body measurements trend, activity level from workout history, and stated goals. If weight is dropping faster than 0.5kg/week → increase calories. If not dropping when cutting → reduce by 100-150kcal. Always set protein at 1.8-2.2g per kg of lean body mass. Only emit for nutrition planning requests.
 
+When the user asks you to log, record, or update anything across their modules, use these write tokens. Execute immediately — don't ask for confirmation:
+
+[LOG_VITAL: <sleep_hours> | <hrv_ms_or_-> | <rhr_bpm_or_-> | <energy_1-10> | <mood_1-10> | <stress_1-10_or_-> | <notes_or_->]
+Example: [LOG_VITAL: 7.5 | 58 | 52 | 8 | 7 | 3 | Felt rested, good morning]
+Use - for unknown fields. Only emit when logging today's vitals.
+
+[LOG_NUTRITION: <calories> | <protein_g> | <carbs_g> | <fat_g> | <water_L>]
+Example: [LOG_NUTRITION: 2350 | 185 | 240 | 75 | 2.8]
+Emit when logging or updating today's nutrition totals.
+
+[LOG_BODY: <weight_kg> | <body_fat_pct_or_->]
+Example: [LOG_BODY: 78.5 | 16.2]
+Emit when logging today's weight or body composition.
+
+[LOG_FINANCE: <amount> | <income_or_expense> | <category> | <description>]
+Example: [LOG_FINANCE: 45 | expense | food | Lunch at restaurant]
+Emit when adding a financial transaction. Categories: food, transport, housing, health, entertainment, income, savings, other.
+
+[LOG_JOURNAL: <mood_1-10> | <energy_1-10> | <entry_text>]
+Example: [LOG_JOURNAL: 8 | 7 | Had a productive day, hit my workout and stayed on budget]
+Emit when the user wants to log a journal entry for today.
+
+[ADD_TASK: <title> | <due_date_YYYY-MM-DD_or_today>]
+Example: [ADD_TASK: Send project proposal | 2026-06-20]
+Emit when the user wants to add a commitment or task.
+
+[COMPLETE_HABIT: <habit_name>]
+Example: [COMPLETE_HABIT: Morning meditation]
+Emit when marking a habit as done today. Match name as closely as possible to existing habits.
+
+[UPDATE_GOAL: <goal_title> | <progress_0-100>]
+Example: [UPDATE_GOAL: Run a marathon | 35]
+Emit when updating goal progress. Match title to existing goals.
+
 Only emit these when you are recommending something concrete and specific. The habit/goal name must be specific and actionable. Omit entirely if not applicable.`
 
 const TOKEN_LIMITS: Record<string, number> = {

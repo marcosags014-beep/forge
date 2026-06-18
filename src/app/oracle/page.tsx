@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Send, Sparkles, Trash2, User, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { chatStore, generateId, getAllDataForAI, profileStore, isProUser, getOracleUsage, incrementOracleUsage, FREE_ORACLE_DAILY, calculateLifeScores, vitalsStore, habitsStore, goalsStore, workoutsStore, today, timelineStore } from '@/lib/store'
+import { chatStore, generateId, getAllDataForAI, profileStore, isProUser, getOracleUsage, incrementOracleUsage, FREE_ORACLE_DAILY, calculateLifeScores, vitalsStore, habitsStore, goalsStore, workoutsStore, nutritionStore, bodyStore, financeStore, journalStore, tasksStore, today, timelineStore } from '@/lib/store'
 import type { ChatMessage, UserProfile, TimelineCategory } from '@/lib/types'
-import { Plus, Check, Target, Dumbbell, CalendarDays } from 'lucide-react'
+import { Plus, Check, Target, Dumbbell, CalendarDays, Heart, Apple, Scale, DollarSign, BookOpen, ListCheck, Trophy } from 'lucide-react'
 import Link from 'next/link'
 
 const AGENT_MODES = [
@@ -45,6 +45,14 @@ type OracleAction =
   | { type: 'goal'; title: string; category: 'health' | 'fitness' | 'finance' | 'career' | 'personal'; months: number }
   | { type: 'workout'; raw: string; duration: number }
   | { type: 'plan'; date: string; time: string; category: TimelineCategory; title: string; detail?: string }
+  | { type: 'vital'; sleep: number; hrv: number | null; rhr: number | null; energy: number; mood: number; stress: number | null; notes: string }
+  | { type: 'nutrition'; calories: number; protein: number; carbs: number; fat: number; water: number }
+  | { type: 'body'; weight: number; bodyFat: number | null }
+  | { type: 'finance'; amount: number; txType: 'income' | 'expense'; category: string; description: string }
+  | { type: 'journal'; mood: number; energy: number; text: string }
+  | { type: 'task'; title: string; dueDate: string }
+  | { type: 'completeHabit'; name: string }
+  | { type: 'updateGoal'; title: string; progress: number }
 
 function parseWorkoutRaw(raw: string): { name: string; sets: { reps: number; weight: number }[] }[] {
   return raw.split(',').map(part => {
@@ -62,38 +70,89 @@ function parseWorkoutRaw(raw: string): { name: string; sets: { reps: number; wei
   }).filter(e => e.name)
 }
 
+function num(s: string | undefined, fallback = 0) { const n = parseFloat(s?.trim() ?? ''); return isNaN(n) ? fallback : n }
+function numOrNull(s: string | undefined): number | null { if (!s || s.trim() === '-') return null; const n = parseFloat(s.trim()); return isNaN(n) ? null : n }
+function int(s: string | undefined, fallback = 0) { const n = parseInt(s?.trim() ?? ''); return isNaN(n) ? fallback : n }
+
 function parseOracleActions(content: string): { clean: string; actions: OracleAction[] } {
   const actions: OracleAction[] = []
-  const habitRe   = /\[ADD_HABIT:\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]/g
-  const goalRe    = /\[ADD_GOAL:\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*(\d+)\s*\]/g
-  const workoutRe = /\[LOG_WORKOUT:\s*([^|\]]+?)\s*\|\s*(\d+)min\s*\]/g
-  const planRe    = /\[PLAN_DAY:\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^|\]]+?)(?:\s*\|\s*([^\]]*?))?\s*\]/g
 
-  let clean = content
+  const regexes = {
+    habit:         /\[ADD_HABIT:\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]/g,
+    goal:          /\[ADD_GOAL:\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*(\d+)\s*\]/g,
+    workout:       /\[LOG_WORKOUT:\s*([^|\]]+?)\s*\|\s*(\d+)min\s*\]/g,
+    plan:          /\[PLAN_DAY:\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^|\]]+?)(?:\s*\|\s*([^\]]*?))?\s*\]/g,
+    vital:         /\[LOG_VITAL:\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^\]]*?)\s*\]/g,
+    nutrition:     /\[LOG_NUTRITION:\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]/g,
+    body:          /\[LOG_BODY:\s*([^|\]]+?)\s*\|\s*([^\]]*?)\s*\]/g,
+    finance:       /\[LOG_FINANCE:\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]/g,
+    journal:       /\[LOG_JOURNAL:\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]/g,
+    task:          /\[ADD_TASK:\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]/g,
+    completeHabit: /\[COMPLETE_HABIT:\s*([^\]]+?)\s*\]/g,
+    updateGoal:    /\[UPDATE_GOAL:\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]/g,
+  }
+
   let m: RegExpExecArray | null
 
-  while ((m = habitRe.exec(content)) !== null) {
+  while ((m = regexes.habit.exec(content)) !== null) {
     const cat = m[2].trim().toLowerCase()
-    const habitCat = (['health','fitness','wealth','mind'].includes(cat) ? cat : 'mind') as 'health' | 'fitness' | 'wealth' | 'mind'
-    actions.push({ type: 'habit', name: m[1].trim(), category: habitCat })
+    actions.push({ type: 'habit', name: m[1].trim(), category: (['health','fitness','wealth','mind'].includes(cat) ? cat : 'mind') as 'health'|'fitness'|'wealth'|'mind' })
   }
-  while ((m = goalRe.exec(content)) !== null) {
+  while ((m = regexes.goal.exec(content)) !== null) {
     const cat = m[2].trim().toLowerCase()
-    const goalCat = (['health','fitness','finance','career','personal'].includes(cat) ? cat : 'personal') as 'health' | 'fitness' | 'finance' | 'career' | 'personal'
-    actions.push({ type: 'goal', title: m[1].trim(), category: goalCat, months: parseInt(m[3]) || 3 })
+    actions.push({ type: 'goal', title: m[1].trim(), category: (['health','fitness','finance','career','personal'].includes(cat) ? cat : 'personal') as 'health'|'fitness'|'finance'|'career'|'personal', months: int(m[3], 3) })
   }
-  while ((m = workoutRe.exec(content)) !== null) {
-    actions.push({ type: 'workout', raw: m[1].trim(), duration: parseInt(m[2]) || 60 })
+  while ((m = regexes.workout.exec(content)) !== null) {
+    actions.push({ type: 'workout', raw: m[1].trim(), duration: int(m[2], 60) })
   }
-  while ((m = planRe.exec(content)) !== null) {
-    const validCats = ['meal','workout','stimulant','note','energy']
+  while ((m = regexes.plan.exec(content)) !== null) {
     const cat = m[3].trim().toLowerCase()
-    const planCat = (validCats.includes(cat) ? cat : 'note') as TimelineCategory
-    actions.push({ type: 'plan', date: m[1].trim(), time: m[2].trim(), category: planCat, title: m[4].trim(), detail: m[5]?.trim() || undefined })
+    actions.push({ type: 'plan', date: m[1].trim(), time: m[2].trim(), category: (['meal','workout','stimulant','note','energy'].includes(cat) ? cat : 'note') as TimelineCategory, title: m[4].trim(), detail: m[5]?.trim() || undefined })
+  }
+  while ((m = regexes.vital.exec(content)) !== null) {
+    actions.push({ type: 'vital', sleep: num(m[1], 7), hrv: numOrNull(m[2]), rhr: numOrNull(m[3]), energy: int(m[4], 7), mood: int(m[5], 7), stress: numOrNull(m[6]), notes: m[7]?.trim() || '' })
+  }
+  while ((m = regexes.nutrition.exec(content)) !== null) {
+    actions.push({ type: 'nutrition', calories: int(m[1]), protein: int(m[2]), carbs: int(m[3]), fat: int(m[4]), water: num(m[5]) })
+  }
+  while ((m = regexes.body.exec(content)) !== null) {
+    actions.push({ type: 'body', weight: num(m[1]), bodyFat: numOrNull(m[2]) })
+  }
+  while ((m = regexes.finance.exec(content)) !== null) {
+    const txType = m[2].trim().toLowerCase() === 'income' ? 'income' : 'expense'
+    actions.push({ type: 'finance', amount: num(m[1]), txType, category: m[3].trim(), description: m[4].trim() })
+  }
+  while ((m = regexes.journal.exec(content)) !== null) {
+    actions.push({ type: 'journal', mood: int(m[1], 7), energy: int(m[2], 7), text: m[3].trim() })
+  }
+  while ((m = regexes.task.exec(content)) !== null) {
+    actions.push({ type: 'task', title: m[1].trim(), dueDate: m[2].trim() === 'today' ? today() : m[2].trim() })
+  }
+  while ((m = regexes.completeHabit.exec(content)) !== null) {
+    actions.push({ type: 'completeHabit', name: m[1].trim() })
+  }
+  while ((m = regexes.updateGoal.exec(content)) !== null) {
+    actions.push({ type: 'updateGoal', title: m[1].trim(), progress: int(m[2], 0) })
   }
 
-  clean = clean.replace(habitRe, '').replace(goalRe, '').replace(workoutRe, '').replace(planRe, '').replace(/\n{3,}/g, '\n\n').trim()
+  let clean = content
+  Object.values(regexes).forEach(re => { clean = clean.replace(re, '') })
+  clean = clean.replace(/\n{3,}/g, '\n\n').trim()
   return { clean, actions }
+}
+
+const ACTION_META: Record<string, { icon: React.ElementType; label: string; color: string }> = {
+  habit:         { icon: Plus,       label: 'Add habit',       color: 'text-violet-400' },
+  goal:          { icon: Target,     label: 'Add goal',        color: 'text-blue-400' },
+  workout:       { icon: Dumbbell,   label: 'Log workout',     color: 'text-orange-400' },
+  vital:         { icon: Heart,      label: 'Log vitals',      color: 'text-rose-400' },
+  nutrition:     { icon: Apple,      label: 'Log nutrition',   color: 'text-green-400' },
+  body:          { icon: Scale,      label: 'Log body',        color: 'text-cyan-400' },
+  finance:       { icon: DollarSign, label: 'Log transaction', color: 'text-emerald-400' },
+  journal:       { icon: BookOpen,   label: 'Save journal',    color: 'text-yellow-400' },
+  task:          { icon: ListCheck,  label: 'Add task',        color: 'text-indigo-400' },
+  completeHabit: { icon: Check,      label: 'Complete habit',  color: 'text-teal-400' },
+  updateGoal:    { icon: Trophy,     label: 'Update goal',     color: 'text-amber-400' },
 }
 
 function ActionButtons({ actions }: { actions: OracleAction[] }) {
@@ -101,43 +160,91 @@ function ActionButtons({ actions }: { actions: OracleAction[] }) {
 
   if (actions.length === 0) return null
 
-  // Group plan actions by date
   const planActions = actions.filter(a => a.type === 'plan') as Extract<OracleAction, { type: 'plan' }>[]
   const otherActions = actions.filter(a => a.type !== 'plan')
   const planDates = [...new Set(planActions.map(a => a.date))].sort()
 
-  function addAction(action: OracleAction) {
-    const key = action.type === 'habit' ? `habit:${action.name}`
-      : action.type === 'goal' ? `goal:${action.title}`
-      : action.type === 'workout' ? `workout:${action.raw}`
-      : `plan:${action.date}:${action.time}:${action.title}`
+  function actionKey(action: OracleAction): string {
+    if (action.type === 'habit')         return `habit:${action.name}`
+    if (action.type === 'goal')          return `goal:${action.title}`
+    if (action.type === 'workout')       return `workout:${action.raw}`
+    if (action.type === 'plan')          return `plan:${action.date}:${action.time}:${action.title}`
+    if (action.type === 'vital')         return `vital:${today()}`
+    if (action.type === 'nutrition')     return `nutrition:${today()}`
+    if (action.type === 'body')          return `body:${today()}`
+    if (action.type === 'finance')       return `finance:${action.amount}:${action.description}`
+    if (action.type === 'journal')       return `journal:${today()}`
+    if (action.type === 'task')          return `task:${action.title}`
+    if (action.type === 'completeHabit') return `completeHabit:${action.name}`
+    if (action.type === 'updateGoal')    return `updateGoal:${action.title}`
+    return JSON.stringify(action)
+  }
+
+  function actionLabel(action: OracleAction): string {
+    if (action.type === 'habit')         return action.name
+    if (action.type === 'goal')          return action.title
+    if (action.type === 'workout')       return `${action.duration}min workout`
+    if (action.type === 'vital')         return `Sleep ${action.sleep}h · Energy ${action.energy}/10`
+    if (action.type === 'nutrition')     return `${action.calories} kcal · ${action.protein}g protein`
+    if (action.type === 'body')          return `${action.weight}kg${action.bodyFat ? ` · ${action.bodyFat}% fat` : ''}`
+    if (action.type === 'finance')       return `${action.txType === 'income' ? '+' : '-'}${action.amount} · ${action.description}`
+    if (action.type === 'journal')       return `Mood ${action.mood}/10 · Energy ${action.energy}/10`
+    if (action.type === 'task')          return action.title
+    if (action.type === 'completeHabit') return action.name
+    if (action.type === 'updateGoal')    return `${action.title} → ${action.progress}%`
+    return ''
+  }
+
+  function executeAction(action: OracleAction) {
+    const key = actionKey(action)
     if (added.has(key)) return
+
+    const todayStr = today()
 
     if (action.type === 'habit') {
       habitsStore.save({ id: generateId(), name: action.name, category: action.category, completions: [] })
     } else if (action.type === 'goal') {
-      const deadline = new Date()
-      deadline.setMonth(deadline.getMonth() + action.months)
+      const deadline = new Date(); deadline.setMonth(deadline.getMonth() + action.months)
       goalsStore.save({ id: generateId(), title: action.title, category: action.category, targetDate: deadline.toISOString().split('T')[0], status: 'active', progress: 0, milestones: [] })
     } else if (action.type === 'workout') {
-      const exercises = parseWorkoutRaw(action.raw)
-      workoutsStore.save({ id: generateId(), date: today(), exercises, duration: action.duration, notes: 'Logged via Oracle' })
+      workoutsStore.save({ id: generateId(), date: todayStr, exercises: parseWorkoutRaw(action.raw), duration: action.duration, notes: 'Logged via Oracle' })
     } else if (action.type === 'plan') {
       timelineStore.save({ id: generateId(), date: action.date, time: action.time, category: action.category, title: action.title, detail: action.detail, planned: true, source: 'oracle' })
+    } else if (action.type === 'vital') {
+      vitalsStore.save({ id: generateId(), date: todayStr, sleepHours: action.sleep, sleepQuality: action.mood, hrv: action.hrv ?? undefined, rhr: action.rhr ?? undefined, energy: action.energy, mood: action.mood, notes: action.notes || undefined })
+    } else if (action.type === 'nutrition') {
+      nutritionStore.save({ id: generateId(), date: todayStr, calories: action.calories, protein: action.protein, carbs: action.carbs, fat: action.fat, water: action.water, meals: [] })
+    } else if (action.type === 'body') {
+      bodyStore.save({ id: generateId(), date: todayStr, weight: action.weight, bodyFat: action.bodyFat ?? undefined })
+    } else if (action.type === 'finance') {
+      financeStore.save({ id: generateId(), date: todayStr, amount: action.amount, type: action.txType, category: action.category, description: action.description })
+    } else if (action.type === 'journal') {
+      journalStore.save({ id: generateId(), date: todayStr, content: action.text, mood: action.mood })
+    } else if (action.type === 'task') {
+      tasksStore.save({ id: generateId(), title: action.title, priority: 'medium', completed: false, createdAt: todayStr })
+    } else if (action.type === 'completeHabit') {
+      const all = habitsStore.getAll()
+      const match = all.find(h => h.name.toLowerCase().includes(action.name.toLowerCase()))
+      if (match && !match.completions.includes(todayStr)) habitsStore.toggle(match.id, todayStr)
+    } else if (action.type === 'updateGoal') {
+      const all = goalsStore.getAll()
+      const match = all.find(g => g.title.toLowerCase().includes(action.title.toLowerCase()))
+      if (match) goalsStore.save({ ...match, progress: action.progress })
     }
+
     setAdded(prev => new Set([...prev, key]))
   }
 
   function addAllForDate(date: string) {
-    planActions.filter(a => a.date === date).forEach(addAction)
+    planActions.filter(a => a.date === date).forEach(executeAction)
   }
 
   const allDateAdded = (date: string) =>
-    planActions.filter(a => a.date === date).every(a => added.has(`plan:${a.date}:${a.time}:${a.title}`))
+    planActions.filter(a => a.date === date).every(a => added.has(actionKey(a)))
 
   return (
     <div className="mt-3 flex flex-col gap-2">
-      {/* Plan actions — grouped by date with bulk-add */}
+      {/* Timeline plan blocks — grouped by date */}
       {planDates.map(date => {
         const dayActions = planActions.filter(a => a.date === date)
         const allDone = allDateAdded(date)
@@ -150,19 +257,14 @@ function ActionButtons({ actions }: { actions: OracleAction[] }) {
                 <span className={allDone ? 'text-green-400' : 'text-primary'}>{dateLabel}</span>
                 <span className="text-muted-foreground">— {dayActions.length} blocks</span>
               </div>
-              <button
-                onClick={() => addAllForDate(date)}
-                disabled={allDone}
-                className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all ${
-                  allDone ? 'text-green-400 cursor-default' : 'bg-primary/20 text-primary hover:bg-primary/30'
-                }`}
-              >
+              <button onClick={() => addAllForDate(date)} disabled={allDone}
+                className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all ${allDone ? 'text-green-400 cursor-default' : 'bg-primary/20 text-primary hover:bg-primary/30'}`}>
                 {allDone ? 'Added ✓' : 'Add all to Timeline'}
               </button>
             </div>
             <div className="divide-y divide-border/50">
               {dayActions.map(action => {
-                const key = `plan:${action.date}:${action.time}:${action.title}`
+                const key = actionKey(action)
                 const done = added.has(key)
                 return (
                   <div key={key} className={`flex items-center justify-between px-3 py-1.5 text-xs ${done ? 'opacity-50' : ''}`}>
@@ -171,11 +273,8 @@ function ActionButtons({ actions }: { actions: OracleAction[] }) {
                       <span className="font-medium truncate">{action.title}</span>
                       {action.detail && <span className="text-muted-foreground truncate hidden sm:block">— {action.detail}</span>}
                     </div>
-                    <button
-                      onClick={() => addAction(action)}
-                      disabled={done}
-                      className={`flex-shrink-0 ml-2 transition-all ${done ? 'text-green-400 cursor-default' : 'text-muted-foreground hover:text-primary'}`}
-                    >
+                    <button onClick={() => executeAction(action)} disabled={done}
+                      className={`flex-shrink-0 ml-2 transition-all ${done ? 'text-green-400 cursor-default' : 'text-muted-foreground hover:text-primary'}`}>
                       {done ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                     </button>
                   </div>
@@ -186,26 +285,24 @@ function ActionButtons({ actions }: { actions: OracleAction[] }) {
         )
       })}
 
-      {/* Other actions */}
+      {/* All other write actions */}
       {otherActions.map(action => {
-        const key = action.type === 'habit' ? `habit:${action.name}` : action.type === 'goal' ? `goal:${action.title}` : `workout:${(action as Extract<OracleAction, {type:'workout'}>).raw}`
+        const key = actionKey(action)
         const done = added.has(key)
-        const label = action.type === 'habit' ? (action as Extract<OracleAction, {type:'habit'}>).name : action.type === 'goal' ? (action as Extract<OracleAction, {type:'goal'}>).title : `${(action as Extract<OracleAction, {type:'workout'}>).duration}min workout`
-        const icon = action.type === 'habit' ? <Plus className="w-3.5 h-3.5" /> : action.type === 'goal' ? <Target className="w-3.5 h-3.5" /> : <Dumbbell className="w-3.5 h-3.5" />
-        const typeLabel = action.type === 'habit' ? 'Add habit' : action.type === 'goal' ? 'Add goal' : 'Log workout'
+        const meta = ACTION_META[action.type] ?? ACTION_META.habit
+        const { icon: Icon, label, color } = meta
         return (
-          <button
-            key={key}
-            onClick={() => addAction(action)}
-            disabled={done}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
-              done
-                ? 'bg-green-500/10 border-green-500/20 text-green-400 cursor-default'
-                : 'bg-primary/10 border-primary/20 text-primary hover:bg-primary/20'
-            }`}
-          >
-            {done ? <Check className="w-3.5 h-3.5" /> : icon}
-            <span>{done ? 'Added to FORGE' : `${typeLabel}: "${label}"`}</span>
+          <button key={key} onClick={() => executeAction(action)} disabled={done}
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-xs font-medium transition-all text-left ${
+              done ? 'bg-green-500/10 border-green-500/20 text-green-400 cursor-default' : 'bg-secondary border-border hover:border-primary/30 hover:bg-primary/5'
+            }`}>
+            <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${done ? 'bg-green-500/20' : 'bg-primary/10'}`}>
+              {done ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Icon className={`w-3.5 h-3.5 ${color}`} />}
+            </div>
+            <div className="min-w-0">
+              <div className={`text-[10px] uppercase tracking-wide mb-0.5 ${done ? 'text-green-400' : 'text-muted-foreground'}`}>{done ? 'Saved to FORGE' : label}</div>
+              <div className={`truncate ${done ? 'text-green-400' : 'text-foreground'}`}>{actionLabel(action)}</div>
+            </div>
           </button>
         )
       })}
