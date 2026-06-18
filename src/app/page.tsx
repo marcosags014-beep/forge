@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { format } from 'date-fns'
-import { CheckCircle2, Circle, ArrowUp, ArrowDown, Minus, Plus, RefreshCw, Zap, Heart, Dumbbell, TrendingUp, Brain, Share2, Sparkles, ChevronRight, Activity, BookOpen, AlarmClock } from 'lucide-react'
+import { CheckCircle2, Circle, ArrowUp, ArrowDown, Minus, Plus, RefreshCw, Zap, Heart, Dumbbell, TrendingUp, Brain, Share2, Sparkles, ChevronRight, Activity, BookOpen, AlarmClock, Quote } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import {
@@ -14,6 +14,7 @@ import {
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import type { VitalEntry, LifeScores, Task, Habit, Projection } from '@/lib/types'
 import DailyQuoteModal from '@/components/DailyQuoteModal'
+import { getDailyQuote } from '@/lib/quotes'
 
 /* ── Life Score Ring ───────────────────────────────────── */
 function LifeScoreRing({ score, call }: { score: number; call: 'GREEN' | 'YELLOW' | 'RED' }) {
@@ -533,6 +534,7 @@ function Dashboard() {
   const [isPro, setIsPro] = useState(false)
   const [showProNudge, setShowProNudge] = useState(false)
   const [showCheckIn, setShowCheckIn] = useState(false)
+  const [showQuote, setShowQuote] = useState(false)
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
   const [alignment, setAlignment] = useState<{ score: number; habitRate: number; keptRate: number; overdueCount: number }>({ score: 0, habitRate: 0, keptRate: 100, overdueCount: 0 })
   const [lifeScoreHistory, setLifeScoreHistory] = useState<{ date: string; score: number }[]>([])
@@ -652,7 +654,7 @@ function Dashboard() {
 
   return (
     <>
-    <DailyQuoteModal />
+    <DailyQuoteModal onReplay={showQuote} onClose={() => setShowQuote(false)} />
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5">
 
       {/* Header */}
@@ -668,15 +670,22 @@ function Dashboard() {
             <p className="text-xs text-primary font-medium mt-0.5">{loginStreak} day streak 🔥</p>
           )}
         </div>
-        <button
-          onClick={() => {
-            const text = `FORGE Life Score: ${scores.overall}/100\n❤️ ${scores.health.score}  💪 ${scores.body.score}  💰 ${scores.wealth.score}  🧠 ${scores.mind.score}`
-            if (navigator.share) navigator.share({ text }).catch(() => {})
-            else navigator.clipboard.writeText(text).catch(() => {})
-          }}
-          className="p-2 rounded-xl text-muted-foreground hover:text-primary transition-colors">
-          <Share2 className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setShowQuote(true)}
+            title="Today's phrase"
+            className="p-2 rounded-xl text-muted-foreground hover:text-primary transition-colors">
+            <Quote className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => {
+              const text = `FORGE Life Score: ${scores.overall}/100\n❤️ ${scores.health.score}  💪 ${scores.body.score}  💰 ${scores.wealth.score}  🧠 ${scores.mind.score}`
+              if (navigator.share) navigator.share({ text }).catch(() => {})
+              else navigator.clipboard.writeText(text).catch(() => {})
+            }}
+            className="p-2 rounded-xl text-muted-foreground hover:text-primary transition-colors">
+            <Share2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Identity reminder */}
