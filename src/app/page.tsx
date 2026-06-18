@@ -2,15 +2,16 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { format } from 'date-fns'
-import { CheckCircle2, Circle, ArrowUp, ArrowDown, Minus, Plus, RefreshCw, Zap, Heart, Dumbbell, TrendingUp, Brain, Share2, Sparkles, ChevronRight, Activity, BookOpen } from 'lucide-react'
+import { CheckCircle2, Circle, ArrowUp, ArrowDown, Minus, Plus, RefreshCw, Zap, Heart, Dumbbell, TrendingUp, Brain, Share2, Sparkles, ChevronRight, Activity, BookOpen, AlarmClock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import {
   vitalsStore, habitsStore, tasksStore, financeStore, workoutsStore, journalStore,
   calculateLifeScores, generateInsights, getDailyCall, today, getHabitStreak,
   checkAndUnlockAchievements, getProjections, profileStore, getAllDataForAI, isProUser,
-  getAlignmentScore, trackReferral,
+  getAlignmentScore, trackReferral, getPeakAlertnessWindow, generateId, lifeScoreHistoryStore,
 } from '@/lib/store'
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import type { VitalEntry, LifeScores, Task, Habit, Projection } from '@/lib/types'
 import DailyQuoteModal from '@/components/DailyQuoteModal'
 
@@ -425,6 +426,94 @@ function MarketingLanding() {
   )
 }
 
+/* ── Morning Check-in Widget ───────────────────────────── */
+const FEELING_OPTIONS = [
+  { score: 2, emoji: '😴', label: 'Drained' },
+  { score: 4, emoji: '😕', label: 'Low' },
+  { score: 6, emoji: '😐', label: 'Okay' },
+  { score: 8, emoji: '😊', label: 'Good' },
+  { score: 10, emoji: '🔥', label: 'Peak' },
+]
+
+function MorningCheckIn({ onSave }: { onSave: () => void }) {
+  const [feeling, setFeeling] = useState<number | null>(null)
+  const [wakeTime, setWakeTime] = useState(() => {
+    const d = new Date()
+    return `${d.getHours().toString().padStart(2, '0')}:00`
+  })
+  const [dismissed, setDismissed] = useState(false)
+  const peakWindow = wakeTime ? getPeakAlertnessWindow(wakeTime) : null
+
+  function handleSave() {
+    const existingToday = vitalsStore.getLast()
+    const isToday = existingToday?.date === today()
+    vitalsStore.save({
+      id: isToday ? existingToday!.id : generateId(),
+      date: today(),
+      sleepHours: isToday ? existingToday!.sleepHours : 7,
+      sleepQuality: isToday ? existingToday!.sleepQuality : 7,
+      energy: feeling ? Math.round(feeling * 0.8) : (isToday ? existingToday!.energy : 7),
+      mood: feeling ? Math.round(feeling * 0.7) : (isToday ? existingToday!.mood : 7),
+      feeling: feeling ?? undefined,
+      wakeTime: wakeTime || undefined,
+      ...(isToday ? { hrv: existingToday!.hrv, rhr: existingToday!.rhr, notes: existingToday!.notes } : {}),
+    })
+    onSave()
+    setDismissed(true)
+  }
+
+  if (dismissed) return null
+
+  return (
+    <div className="forge-card border-primary/20">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-3.5 h-3.5 text-primary" />
+          <span className="forge-label">Morning Check-in</span>
+        </div>
+        <button onClick={() => setDismissed(true)} className="text-muted-foreground hover:text-foreground text-base leading-none">×</button>
+      </div>
+
+      <p className="text-xs text-muted-foreground mb-3">How are you feeling right now?</p>
+      <div className="flex gap-2 mb-4">
+        {FEELING_OPTIONS.map(opt => (
+          <button key={opt.score}
+            onClick={() => setFeeling(opt.score)}
+            className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-xl border transition-all ${
+              feeling === opt.score
+                ? 'border-primary bg-primary/10 scale-105'
+                : 'border-border bg-secondary/40 hover:border-primary/40'
+            }`}>
+            <span className="text-lg">{opt.emoji}</span>
+            <span className={`text-[9px] font-medium ${feeling === opt.score ? 'text-primary' : 'text-muted-foreground'}`}>{opt.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-2 flex-1">
+          <AlarmClock className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+          <span className="text-xs text-muted-foreground flex-shrink-0">Woke at</span>
+          <input type="time" value={wakeTime}
+            onChange={e => setWakeTime(e.target.value)}
+            className="flex-1 bg-secondary border border-border rounded-lg px-2 py-1 text-xs text-foreground min-w-0"
+          />
+        </div>
+        {peakWindow && (
+          <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-1 rounded-full flex-shrink-0 whitespace-nowrap">
+            Peak {peakWindow.start}–{peakWindow.end}
+          </span>
+        )}
+      </div>
+
+      <button onClick={handleSave}
+        className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
+        Log check-in
+      </button>
+    </div>
+  )
+}
+
 /* ── Dashboard (existing code) ─────────────────────────── */
 function Dashboard() {
   const [scores, setScores] = useState<LifeScores>({
@@ -443,7 +532,10 @@ function Dashboard() {
   const [profile, setProfile] = useState<{ name?: string; identity?: string; joinedAt?: string } | null>(null)
   const [isPro, setIsPro] = useState(false)
   const [showProNudge, setShowProNudge] = useState(false)
+  const [showCheckIn, setShowCheckIn] = useState(false)
+  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
   const [alignment, setAlignment] = useState<{ score: number; habitRate: number; keptRate: number; overdueCount: number }>({ score: 0, habitRate: 0, keptRate: 100, overdueCount: 0 })
+  const [lifeScoreHistory, setLifeScoreHistory] = useState<{ date: string; score: number }[]>([])
   const todayStr = today()
   const briefFetchedRef = useRef(false)
 
@@ -451,16 +543,24 @@ function Dashboard() {
     setScores(calculateLifeScores())
     setTasks(tasksStore.getAll().filter(t => !t.completed).slice(0, 5))
     setHabits(habitsStore.getAll())
-    setVital(vitalsStore.getLast())
+    const todayVital = vitalsStore.getLast()
+    setVital(todayVital)
+    setShowCheckIn(!todayVital || todayVital.date !== today() || !todayVital.feeling)
     setProjections(getProjections())
     const p = profileStore.get()
     setProfile(p)
     setAlignment(getAlignmentScore())
+    // Record today's Life Score snapshot and build sparkline
+    lifeScoreHistoryStore.record()
+    const hist = lifeScoreHistoryStore.getRecent(30).reverse()
+    setLifeScoreHistory(hist.map(s => ({ date: s.date.slice(5), score: s.overall })))
     checkAndUnlockAchievements()
     const pro = isProUser()
     setIsPro(pro)
     if (!pro && p?.joinedAt) {
       const daysSinceJoin = Math.floor((Date.now() - new Date(p.joinedAt).getTime()) / 86400000)
+      const remaining = Math.max(0, 7 - daysSinceJoin)
+      setTrialDaysLeft(remaining)
       if (daysSinceJoin >= 7) {
         try {
           const dismissed = localStorage.getItem('forge_nudge_dismiss')
@@ -472,6 +572,7 @@ function Dashboard() {
   }, [])
 
   useEffect(() => { reload() }, [reload])
+
 
   // Auto-fetch Oracle brief once per day
   useEffect(() => {
@@ -587,6 +688,21 @@ function Dashboard() {
         </div>
       )}
 
+      {/* Trial countdown — visible during the 7-day window */}
+      {!isPro && trialDaysLeft !== null && trialDaysLeft > 0 && (
+        <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-primary/5 border border-primary/10">
+          <div className="flex items-center gap-2">
+            <span className={`text-xs font-bold tabular-nums ${trialDaysLeft <= 2 ? 'text-yellow-400' : 'text-primary'}`}>
+              {trialDaysLeft}d left
+            </span>
+            <span className="text-[11px] text-muted-foreground">in free trial · data stays local until you back up</span>
+          </div>
+          <Link href="/settings" className="text-[11px] font-semibold text-primary hover:underline flex-shrink-0">
+            Back up →
+          </Link>
+        </div>
+      )}
+
       {/* Day 7+ Pro nudge */}
       {showProNudge && !isPro && (
         <div className="relative px-4 py-3.5 rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/8 to-primary/4 overflow-hidden">
@@ -607,6 +723,9 @@ function Dashboard() {
           </Link>
         </div>
       )}
+
+      {/* Morning Check-in */}
+      {showCheckIn && <MorningCheckIn onSave={reload} />}
 
       {/* Oracle proactive brief */}
       <div className="forge-card">
@@ -675,6 +794,31 @@ function Dashboard() {
             <DomainRow label="Mind"    score={scores.mind.score}    trend={scores.mind.trend}    icon={Brain}      color="#a78bfa" noData={!mindHasData}   href="/mind" />
           </div>
         </div>
+
+        {/* Life Score 30-day sparkline */}
+        {lifeScoreHistory.length > 2 && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">30-day Life Score</p>
+            <ResponsiveContainer width="100%" height={48}>
+              <AreaChart data={lifeScoreHistory} margin={{ top: 2, right: 0, left: -30, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="lsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="oklch(0.705 0.213 47.604)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="oklch(0.705 0.213 47.604)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" tick={false} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 100]} tick={false} axisLine={false} tickLine={false} />
+                <Tooltip
+                  formatter={(v) => [`${v}`, 'Life Score']}
+                  contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '11px' }}
+                  labelFormatter={(l) => l}
+                />
+                <Area type="monotone" dataKey="score" stroke="oklch(0.705 0.213 47.604)" strokeWidth={2} fill="url(#lsGrad)" dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
 
         {/* Alignment / Word Kept — FORGE's core metric */}
         <div className="mt-4 pt-4 border-t border-border">

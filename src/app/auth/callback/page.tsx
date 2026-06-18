@@ -3,13 +3,14 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { profileStore } from '@/lib/store'
 import { Flame } from 'lucide-react'
 
 export default function AuthCallbackPage() {
   const router = useRouter()
 
   useEffect(() => {
-    if (!supabase) { router.replace('/settings'); return }
+    if (!supabase) { router.replace('/'); return }
 
     const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
@@ -19,16 +20,31 @@ export default function AuthCallbackPage() {
     async function handleCallback() {
       try {
         if (code) {
-          // OAuth PKCE flow (Google, etc.)
           await supabase!.auth.exchangeCodeForSession(code)
         } else if (tokenHash && type) {
-          // Magic link / OTP flow
           await supabase!.auth.verifyOtp({ token_hash: tokenHash, type })
         }
       } catch {
-        // Session may already be set via URL fragment — Supabase handles it
+        // Session may already be set via URL fragment
       }
-      router.replace('/settings')
+
+      // Where to go after auth:
+      // 1. Use the saved return URL if present (set before OAuth redirect)
+      // 2. Fall back to '/' if the user has a completed profile
+      // 3. Fall back to '/setup' if no profile exists (brand-new device / cleared storage)
+      let dest = '/'
+      try {
+        const saved = sessionStorage.getItem('forge_auth_return')
+        sessionStorage.removeItem('forge_auth_return')
+        // Only accept same-origin paths (must start with / and not contain a protocol)
+        if (saved && /^\/[^/]/.test(saved) && !saved.includes('://')) {
+          dest = saved
+        } else {
+          const profile = profileStore.get()
+          dest = profile?.setupComplete ? '/' : '/setup'
+        }
+      } catch {}
+      router.replace(dest)
     }
 
     handleCallback()

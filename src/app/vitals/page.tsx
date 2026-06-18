@@ -1,14 +1,98 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
-import { Moon, Heart, Zap, Smile, Save, Watch, Trash2 } from 'lucide-react'
+import { Moon, Heart, Zap, Smile, Save, Watch, Trash2, AlarmClock, Sparkles, Plus, CheckCircle2, Circle, Footprints, Droplets } from 'lucide-react'
 import { fetchTodayHealthData, requestHealthPermissions, isNative, scheduleDailyVitalsReminder, requestNotificationPermission } from '@/lib/health'
 import { Button } from '@/components/ui/button'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { vitalsStore, generateId, today, calculateReadiness } from '@/lib/store'
+import { vitalsStore, supplementLogStore, generateId, today, calculateReadiness, getPeakAlertnessWindow } from '@/lib/store'
 
-import type { VitalEntry } from '@/lib/types'
+import type { VitalEntry, SupplementEntry } from '@/lib/types'
+
+const SUPPLEMENT_PRESETS = [
+  { name: 'Vitamin D3', doseMg: 2000 },
+  { name: 'Magnesium', doseMg: 400 },
+  { name: 'Omega-3', doseMg: 1000 },
+  { name: 'Creatine', doseMg: 5000 },
+  { name: 'Zinc', doseMg: 25 },
+  { name: 'Protein', doseMg: 30000 },
+  { name: 'Ashwagandha', doseMg: 600 },
+  { name: 'Caffeine', doseMg: 200 },
+]
+
+function SupplementStack() {
+  const todayStr = today()
+  const [todaySupps, setTodaySupps] = useState<SupplementEntry[]>([])
+  const [customName, setCustomName] = useState('')
+  const [customDose, setCustomDose] = useState('500')
+  const [showCustom, setShowCustom] = useState(false)
+
+  const reload = () => setTodaySupps(supplementLogStore.getForDate(todayStr))
+  useEffect(reload, [todayStr])
+
+  function log(name: string, doseMg: number, timing: SupplementEntry['timing'] = 'morning') {
+    const existing = todaySupps.find(s => s.name === name)
+    if (existing) { supplementLogStore.delete(existing.id); reload(); return }
+    supplementLogStore.save({ id: generateId(), date: todayStr, name, doseMg, timing })
+    reload()
+  }
+
+  const loggedNames = new Set(todaySupps.map(s => s.name))
+
+  return (
+    <div className="forge-card space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="forge-label flex items-center gap-2">
+          <Sparkles className="w-3.5 h-3.5 text-primary" />Supplement Stack — Today
+        </span>
+        <span className="text-[10px] text-muted-foreground">{todaySupps.length} logged</span>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {SUPPLEMENT_PRESETS.map(s => {
+          const done = loggedNames.has(s.name)
+          return (
+            <button key={s.name} onClick={() => log(s.name, s.doseMg)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                done ? 'border-primary/50 bg-primary/10 text-primary' : 'border-border bg-secondary text-muted-foreground hover:border-primary/30 hover:text-foreground'
+              }`}>
+              {done ? <CheckCircle2 className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
+              {s.name}
+            </button>
+          )
+        })}
+        <button onClick={() => setShowCustom(v => !v)}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:border-primary/40 transition-all">
+          <Plus className="w-3 h-3" />Custom
+        </button>
+      </div>
+
+      {showCustom && (
+        <div className="flex gap-2">
+          <input value={customName} onChange={e => setCustomName(e.target.value)}
+            placeholder="Supplement name"
+            className="flex-1 bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground" />
+          <input value={customDose} onChange={e => setCustomDose(e.target.value)}
+            type="number" placeholder="mg"
+            className="w-20 bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm text-foreground" />
+          <Button size="sm" onClick={() => { if (customName) { log(customName, parseInt(customDose) || 0); setCustomName(''); setShowCustom(false) } }}
+            className="bg-primary text-primary-foreground">Add</Button>
+        </div>
+      )}
+
+      {todaySupps.length > 0 && (
+        <div className="border-t border-border pt-2 flex flex-wrap gap-1.5">
+          {todaySupps.map(s => (
+            <span key={s.id} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              {s.name} {s.doseMg >= 1000 ? `${s.doseMg / 1000}g` : `${s.doseMg}mg`}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function Slider({ label, value, onChange, min = 1, max = 10, icon: Icon }: {
   label: string; value: number; onChange: (v: number) => void; min?: number; max?: number; icon: React.ElementType
@@ -61,6 +145,7 @@ export default function VitalsPage() {
   const [saved, setSaved] = useState(false)
   const [healthImported, setHealthImported] = useState(false)
   const [importingHealth, setImportingHealth] = useState(false)
+  const peakWindow = form.wakeTime ? getPeakAlertnessWindow(form.wakeTime) : null
 
   useEffect(() => {
     const all = vitalsStore.getRecent(30)
@@ -168,6 +253,56 @@ export default function VitalsPage() {
           <Slider label="HRV" value={form.hrv ?? 60} onChange={v => setForm(f => ({ ...f, hrv: v }))} min={20} max={150} icon={Heart} />
           <Slider label="Energy" value={form.energy} onChange={v => setForm(f => ({ ...f, energy: v }))} icon={Zap} />
           <Slider label="Mood" value={form.mood} onChange={v => setForm(f => ({ ...f, mood: v }))} icon={Smile} />
+          <Slider label="Overall Feeling" value={form.feeling ?? 7} onChange={v => setForm(f => ({ ...f, feeling: v }))} icon={Sparkles} />
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <label className="forge-label flex items-center gap-2"><AlarmClock className="w-3.5 h-3.5" />Wake Time</label>
+              {peakWindow && (
+                <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                  Peak {peakWindow.start}–{peakWindow.end}
+                </span>
+              )}
+            </div>
+            <input
+              type="time" value={form.wakeTime ?? ''}
+              onChange={e => setForm(f => ({ ...f, wakeTime: e.target.value }))}
+              className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+            />
+          </div>
+
+          {/* Steps + Water row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="forge-label flex items-center gap-1.5"><Footprints className="w-3.5 h-3.5" />Steps</label>
+              <input
+                type="number" min={0} max={100000} step={100} value={form.steps ?? ''}
+                onChange={e => setForm(f => ({ ...f, steps: parseInt(e.target.value) || undefined }))}
+                placeholder="0"
+                className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <label className="forge-label flex items-center gap-1.5"><Droplets className="w-3.5 h-3.5 text-blue-400" />Water</label>
+                <span className="text-xs font-bold text-blue-400">{form.waterLiters?.toFixed(1) ?? '0.0'}L</span>
+              </div>
+              <div className="flex gap-1">
+                {[0.25, 0.5, 0.75, 1].map(amt => (
+                  <button key={amt} onClick={() => setForm(f => ({ ...f, waterLiters: Math.min(10, (f.waterLiters ?? 0) + amt) }))}
+                    className="flex-1 text-[10px] py-1.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-colors">
+                    +{amt}L
+                  </button>
+                ))}
+              </div>
+              {(form.waterLiters ?? 0) > 0 && (
+                <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-500 bg-blue-400"
+                    style={{ width: `${Math.min(100, ((form.waterLiters ?? 0) / 2.5) * 100)}%` }} />
+                </div>
+              )}
+            </div>
+          </div>
 
           <div className="space-y-1">
             <label className="forge-label">Notes</label>
@@ -206,6 +341,40 @@ export default function VitalsPage() {
             </div>
           )}
 
+          {/* Sleep debt */}
+          {entries.length >= 3 && (() => {
+            const last7 = entries.slice(0, 7)
+            const debt = last7.reduce((sum, e) => sum + Math.max(0, 8 - e.sleepHours), 0)
+            const avg = last7.reduce((s, e) => s + e.sleepHours, 0) / last7.length
+            const color = debt <= 2 ? 'text-green-400' : debt <= 5 ? 'text-yellow-400' : 'text-red-400'
+            const label = debt <= 2 ? 'Well rested' : debt <= 5 ? 'Mild deficit' : 'Sleep debt — prioritise recovery'
+            return (
+              <div className="forge-card flex items-center gap-4">
+                <div className="flex-1">
+                  <div className="forge-label mb-1">Sleep Debt (7 days)</div>
+                  <div className={`text-2xl font-bold ${color}`}>{debt.toFixed(1)}h</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    avg {avg.toFixed(1)}h/night · {label}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  {last7.slice(0, 5).reverse().map((e, i) => {
+                    const d = Math.max(0, 8 - e.sleepHours)
+                    return (
+                      <div key={i} className="flex items-center gap-1.5">
+                        <div className="w-12 h-2 bg-secondary rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all"
+                            style={{ width: `${Math.min(100, (e.sleepHours / 8) * 100)}%`, backgroundColor: e.sleepHours >= 7.5 ? '#22c55e' : e.sleepHours >= 6 ? '#f59e0b' : '#ef4444' }} />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground w-10">{e.sleepHours}h{d > 0 ? ` -${d.toFixed(1)}` : ''}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Readiness trend */}
           {chartData.length > 1 && (
             <div className="forge-card">
@@ -221,6 +390,11 @@ export default function VitalsPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Supplement Stack */}
+      <div className="mb-6">
+        <SupplementStack />
       </div>
 
       {/* HRV + Sleep charts */}

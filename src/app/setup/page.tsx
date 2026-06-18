@@ -7,6 +7,15 @@ import { Button } from '@/components/ui/button'
 import { profileStore, habitsStore, goalsStore, generateId, logReferralOnSetupComplete, alignmentHistoryStore } from '@/lib/store'
 import { Analytics } from '@/lib/analytics'
 
+const IDENTITY_STARTERS = [
+  'A high performer who trains 4x/week, sleeps 8h, and spends intentionally',
+  'Someone who ships projects instead of planning them',
+  'A disciplined athlete who is also financially free',
+  'A focused builder who protects deep work time and earns on my own terms',
+  'Someone who shows up consistently — in fitness, relationships, and work',
+  'A person with elite health habits, financial discipline, and creative output',
+]
+
 const OBSTACLE_CHIPS = [
   'Lack of consistency',
   'No clear system',
@@ -65,18 +74,27 @@ export default function SetupPage() {
   const [genError, setGenError] = useState(false)
   const [selectedHabits, setSelectedHabits] = useState<string[]>([])
 
-  useEffect(() => { Analytics.onboardingStarted() }, [])
+  useEffect(() => {
+    // Redirect existing users away from setup — they already have data
+    const existing = profileStore.get()
+    if (existing?.setupComplete) {
+      router.replace('/')
+      return
+    }
+    Analytics.onboardingStarted()
+  }, [])
 
   function nextStep() {
     Analytics.setupStepCompleted(step)
     setStep(s => s + 1)
   }
 
-  async function generateProfile() {
+  async function generateProfile(visionOverride?: string) {
     setGenerating(true)
     setGenError(false)
     setStep(4)
 
+    const effectiveVision = visionOverride ?? vision
     const allObstacles = [...obstacles, customObstacle].filter(Boolean).join(', ') || 'not specified'
 
     try {
@@ -89,7 +107,7 @@ export default function SetupPage() {
 Name: ${name || 'not given'}
 Who they want to become: "${identity}"
 What is stopping them: "${allObstacles}"
-What changes in 12 months: "${vision}"
+What changes in 12 months: "${effectiveVision}"
 
 Return a JSON object with exactly these keys:
 - identityStatement: a 1-2 sentence distilled version of who they're becoming (speak to them directly, e.g. "You're becoming...")
@@ -123,10 +141,11 @@ Return ONLY the JSON. No markdown, no explanation.`,
     }
   }
 
-  function finish() {
+  // Persists all setup data to localStorage — called before navigation OR before OAuth redirect.
+  // Must be separate from finish() so the Google button can save without triggering router.push.
+  function persistSetup() {
     const allObstacles = [...obstacles, customObstacle].filter(Boolean)
-
-    // Save profile with full onboarding data
+    const existing = profileStore.get()
     profileStore.save({
       name: name.trim() || 'You',
       primaryGoal: identity.slice(0, 60) || 'performance',
@@ -135,15 +154,11 @@ Return ONLY the JSON. No markdown, no explanation.`,
       obstacles: allObstacles.length > 0 ? allObstacles : undefined,
       oracleIdentity: profile?.identityStatement || undefined,
       setupComplete: true,
-      joinedAt: new Date().toISOString(),
+      joinedAt: existing?.joinedAt ?? new Date().toISOString(),
     })
-
-    // Save selected habits
     selectedHabits.forEach(h =>
       habitsStore.save({ id: generateId(), name: h.trim(), category: 'mind', completions: [] })
     )
-
-    // Save vision as a goal
     if (vision.trim()) {
       goalsStore.save({
         id: generateId(),
@@ -156,10 +171,13 @@ Return ONLY the JSON. No markdown, no explanation.`,
         notes: `12-month vision set during onboarding: "${vision}"`,
       })
     }
-
     alignmentHistoryStore.record()
     logReferralOnSetupComplete()
     Analytics.onboardingCompleted({ focus: identity.slice(0, 40) })
+  }
+
+  function finish() {
+    persistSetup()
     router.push('/')
   }
 
@@ -206,6 +224,23 @@ Return ONLY the JSON. No markdown, no explanation.`,
 
               <div className="space-y-1.5">
                 <label className="forge-label">I am becoming…</label>
+                {!identity && (
+                  <div className="mb-2">
+                    <p className="text-xs text-muted-foreground mb-2">Tap an example to get started:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {IDENTITY_STARTERS.map(s => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setIdentity(s)}
+                          className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground hover:bg-primary/5 transition-all text-left"
+                        >
+                          {s.length > 45 ? s.slice(0, 45) + '…' : s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <textarea
                   value={identity}
                   onChange={e => setIdentity(e.target.value)}
@@ -294,7 +329,7 @@ Return ONLY the JSON. No markdown, no explanation.`,
             />
 
             <Button
-              onClick={generateProfile}
+              onClick={() => generateProfile()}
               disabled={!vision.trim()}
               className="w-full bg-primary text-primary-foreground py-6 text-base gap-2 shadow-lg shadow-primary/20 disabled:opacity-40"
             >
@@ -302,7 +337,7 @@ Return ONLY the JSON. No markdown, no explanation.`,
               Generate my identity plan
             </Button>
             <button
-              onClick={() => { setVision('Building a better version of myself.'); generateProfile() }}
+              onClick={() => { const fallback = 'Building a better version of myself.'; setVision(fallback); generateProfile(fallback) }}
               className="w-full text-xs text-muted-foreground hover:text-foreground mt-3 py-2 transition-colors"
             >
               Skip and generate anyway

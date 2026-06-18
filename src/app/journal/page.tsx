@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { format, subDays } from 'date-fns'
+import { format, subDays, differenceInCalendarDays } from 'date-fns'
 import { BookOpen, Save, Sparkles, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { journalStore, vitalsStore, generateId, today, getAllDataForAI } from '@/lib/store'
@@ -77,6 +77,23 @@ export default function JournalPage() {
   const moodColor = mood >= 8 ? 'text-green-400' : mood >= 5 ? 'text-yellow-400' : 'text-red-400'
   const wordCount = content.trim().split(/\s+/).filter(Boolean).length
 
+  // Writing streak: consecutive days with entries ending today or yesterday
+  const writingStreak = (() => {
+    const dates = new Set(entries.map(e => e.date))
+    let streak = 0
+    let check = new Date()
+    // Allow today's draft (not yet saved) to count
+    if (!dates.has(check.toISOString().split('T')[0]) && content.trim().length > 0) {
+      dates.add(check.toISOString().split('T')[0])
+    }
+    while (dates.has(check.toISOString().split('T')[0])) {
+      streak++
+      check = subDays(check, 1)
+    }
+    return streak
+  })()
+  const totalWords = entries.reduce((s, e) => s + e.content.trim().split(/\s+/).filter(Boolean).length, 0)
+
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto animate-in fade-in duration-300">
       {/* Header */}
@@ -84,6 +101,14 @@ export default function JournalPage() {
         <div>
           <p className="forge-label mb-1"><BookOpen className="w-3.5 h-3.5" />Daily Journal</p>
           <h1 className="text-2xl md:text-3xl font-bold">{displayDate}</h1>
+          {entries.length > 0 && (
+            <div className="flex items-center gap-3 mt-1.5">
+              {writingStreak > 0 && (
+                <span className="text-xs text-primary font-medium">{writingStreak}🔥 streak</span>
+              )}
+              <span className="text-xs text-muted-foreground">{entries.length} entries · {totalWords.toLocaleString()} words</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setDateOffset(d => d + 1)}

@@ -63,6 +63,24 @@ export default function ReviewPage() {
   const weekLabel = `Week of ${format(weekStart, 'MMM d, yyyy')}`
   const isCurrent = weekOffset === 0
 
+  // Load cached weekly review on mount
+  useEffect(() => {
+    if (weekOffset !== 0) return
+    try {
+      const cached = localStorage.getItem('forge_weekly_review')
+      if (cached) {
+        const { weekKey, narrative: n, wins: w, improvements: imp, nextWeek: nw } = JSON.parse(cached)
+        const thisWeekKey = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+        if (weekKey === thisWeekKey && n) {
+          setNarrative(n)
+          if (w?.length) setWins(prev => [...prev, ...w].slice(0, 6))
+          if (imp?.length) setImprovements(prev => [...prev, ...imp].slice(0, 4))
+          if (nw?.length) setNextWeek(nw)
+        }
+      }
+    } catch {}
+  }, [weekOffset])
+
   useEffect(() => {
     setIsPro(isProUser())
     setScores(calculateLifeScores())
@@ -167,10 +185,21 @@ export default function ReviewPage() {
       const data = await res.json()
       try {
         const parsed = JSON.parse(data.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
-        setNarrative(parsed.narrative ?? '')
-        if (parsed.wins?.length) setWins(parsed.wins)
-        if (parsed.improvements?.length) setImprovements(parsed.improvements)
-        if (parsed.nextWeek?.length) setNextWeek(parsed.nextWeek)
+        const n = parsed.narrative ?? ''
+        const w = parsed.wins ?? []
+        const imp = parsed.improvements ?? []
+        const nw = parsed.nextWeek ?? []
+        setNarrative(n)
+        if (w.length) setWins(w)
+        if (imp.length) setImprovements(imp)
+        if (nw.length) setNextWeek(nw)
+        // Cache for this week
+        if (weekOffset === 0) {
+          try {
+            const weekKey = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+            localStorage.setItem('forge_weekly_review', JSON.stringify({ weekKey, narrative: n, wins: w, improvements: imp, nextWeek: nw }))
+          } catch {}
+        }
       } catch {
         setNarrative(data.content)
       }

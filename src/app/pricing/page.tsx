@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Flame, CheckCircle2, Sparkles, ArrowRight, Shield, Zap, Loader2,
   ChevronDown, Lock, RefreshCw, Download, Clock, Brain,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { getReferralCode } from '@/lib/store'
+import { getReferralCode, profileStore } from '@/lib/store'
 import { track } from '@vercel/analytics'
 import { SoftwareJsonLd } from '@/components/JsonLd'
 
@@ -173,6 +173,11 @@ export default function PricingPage() {
   const [plan, setPlan] = useState<'monthly' | 'annual'>('annual')
   const [checkingOut, setCheckingOut] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
+  const [freeHref, setFreeHref] = useState('/setup')
+
+  useEffect(() => {
+    if (profileStore.get()?.setupComplete) setFreeHref('/')
+  }, [])
 
   function showToast(msg: string) {
     setToastMsg(msg)
@@ -228,7 +233,7 @@ export default function PricingPage() {
           <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
             Open App
           </Link>
-          <Link href="/setup">
+          <Link href={freeHref}>
             <Button size="sm" className="bg-primary text-primary-foreground">
               Try Free
             </Button>
@@ -257,7 +262,7 @@ export default function PricingPage() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link href="/setup" onClick={() => track('cta_clicked', { location: 'hero' })}>
+          <Link href={freeHref} onClick={() => track('cta_clicked', { location: 'hero' })}>
             <Button className="bg-primary text-primary-foreground px-8 py-6 text-base gap-2 shadow-lg shadow-primary/25">
               <Flame className="w-5 h-5" />
               Get Started Free
@@ -443,7 +448,7 @@ export default function PricingPage() {
                 </li>
               ))}
             </ul>
-            <Link href="/setup" className="block" onClick={() => track('cta_clicked', { location: 'pricing_free' })}>
+            <Link href={freeHref} className="block" onClick={() => track('cta_clicked', { location: 'pricing_free' })}>
               <Button variant="outline" className="w-full">Start Free — No Card</Button>
             </Link>
           </div>
@@ -595,7 +600,7 @@ export default function PricingPage() {
           <p className="text-muted-foreground mb-8 leading-relaxed">
             Most people who calculate it for the first time are below 40%. The number isn't a judgement — it's a starting point. Takes 90 seconds to set up.
           </p>
-          <Link href="/setup">
+          <Link href={freeHref}>
             <Button className="bg-primary text-primary-foreground px-10 py-6 text-base gap-2 shadow-xl shadow-primary/25">
               <Flame className="w-5 h-5" />
               Start Free — No Credit Card

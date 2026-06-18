@@ -2,11 +2,25 @@
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { Plus, TrendingUp, TrendingDown, DollarSign, Save, Rocket, Trash2 } from 'lucide-react'
+import { Plus, TrendingUp, TrendingDown, DollarSign, Save, Rocket, Trash2, RefreshCw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, AreaChart, Area, CartesianGrid } from 'recharts'
-import { financeStore, generateId, today } from '@/lib/store'
-import type { Transaction } from '@/lib/types'
+import { financeStore, subscriptionsStore, netWorthStore, generateId, today } from '@/lib/store'
+import type { Transaction, Subscription, NetWorthEntry } from '@/lib/types'
+
+const SUB_PRESETS = [
+  { name: 'Netflix', amount: 13.99, category: 'streaming' as const, color: '#ef4444' },
+  { name: 'Spotify', amount: 10.99, category: 'streaming' as const, color: '#22c55e' },
+  { name: 'ChatGPT Plus', amount: 20, category: 'software' as const, color: '#10b981' },
+  { name: 'iCloud 50GB', amount: 0.99, category: 'software' as const, color: '#3b82f6' },
+  { name: 'YouTube Premium', amount: 13.99, category: 'streaming' as const, color: '#ef4444' },
+  { name: 'Gym', amount: 40, category: 'fitness' as const, color: '#f59e0b' },
+]
+
+const CAT_COLORS: Record<string, string> = {
+  streaming: '#ef4444', fitness: '#f59e0b', software: '#3b82f6',
+  news: '#8b5cf6', food: '#22c55e', finance: '#14b8a6', other: '#94a3b8',
+}
 
 const CATEGORIES = ['Food', 'Transport', 'Health', 'Fitness', 'Entertainment', 'Clothing', 'Rent', 'Utilities', 'Investment', 'Income', 'Other']
 const COLORS = ['#f97316', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b', '#a78bfa', '#86efac', '#94a3b8']
@@ -29,16 +43,55 @@ export default function WealthPage() {
   const [saved, setSaved] = useState(false)
   const [projectionRate, setProjectionRate] = useState(7)
   const [projectionSavings, setProjectionSavings] = useState<number | null>(null)
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+  const [showAddSub, setShowAddSub] = useState(false)
+  const [subForm, setSubForm] = useState({ name: '', amount: '', cycle: 'monthly' as 'monthly' | 'annual', category: 'other' as Subscription['category'] })
+  const [netWorthHistory, setNetWorthHistory] = useState<NetWorthEntry[]>([])
+  const [showNW, setShowNW] = useState(false)
+  const [nwForm, setNwForm] = useState({ assets: '', liabilities: '', note: '' })
 
   useEffect(() => {
     const txs = financeStore.getAll()
     setTransactions(txs)
+    setSubscriptions(subscriptionsStore.getAll())
+    setNetWorthHistory(netWorthStore.getAll())
     const inc = txs.filter(t => t.type === 'income' && t.date.startsWith(today().slice(0, 7))).reduce((s, t) => s + t.amount, 0)
     const exp = txs.filter(t => t.type === 'expense' && t.date.startsWith(today().slice(0, 7))).reduce((s, t) => s + t.amount, 0)
     const monthlySavings = inc - exp
     if (monthlySavings > 0) setProjectionSavings(Math.round(monthlySavings))
     else setProjectionSavings(500)
   }, [])
+
+  function addSubscription() {
+    if (!subForm.name || !subForm.amount) return
+    const sub: Subscription = {
+      id: generateId(),
+      name: subForm.name,
+      amount: parseFloat(subForm.amount),
+      cycle: subForm.cycle,
+      category: subForm.category,
+      color: CAT_COLORS[subForm.category],
+    }
+    subscriptionsStore.save(sub)
+    setSubscriptions(subscriptionsStore.getAll())
+    setSubForm({ name: '', amount: '', cycle: 'monthly', category: 'other' })
+    setShowAddSub(false)
+  }
+
+  function addNetWorth() {
+    if (!nwForm.assets && !nwForm.liabilities) return
+    const entry: NetWorthEntry = {
+      id: generateId(),
+      date: today(),
+      assets: parseFloat(nwForm.assets) || 0,
+      liabilities: parseFloat(nwForm.liabilities) || 0,
+      note: nwForm.note || undefined,
+    }
+    netWorthStore.save(entry)
+    setNetWorthHistory(netWorthStore.getAll())
+    setNwForm({ assets: '', liabilities: '', note: '' })
+    setShowNW(false)
+  }
 
   function save() {
     if (!form.amount || !form.description) return
@@ -246,6 +299,207 @@ export default function WealthPage() {
           </div>
         </div>
       )}
+
+      {/* Subscriptions */}
+      <div className="forge-card mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="w-3.5 h-3.5 text-primary" />
+            <span className="forge-label">Subscriptions</span>
+          </div>
+          <div className="flex items-center gap-3">
+            {subscriptions.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                €{subscriptionsStore.getMonthlyTotal().toFixed(0)}/mo · €{subscriptionsStore.getAnnualTotal().toFixed(0)}/yr
+              </span>
+            )}
+            <button onClick={() => setShowAddSub(v => !v)}
+              className="text-xs text-primary hover:underline flex items-center gap-0.5">
+              <Plus className="w-3 h-3" />Add
+            </button>
+          </div>
+        </div>
+
+        {/* Presets (show when adding) */}
+        {showAddSub && (
+          <div className="mb-4 space-y-3 p-3 bg-secondary/40 rounded-xl border border-border">
+            <div className="flex flex-wrap gap-1.5">
+              {SUB_PRESETS.map(p => (
+                <button key={p.name}
+                  onClick={() => setSubForm(f => ({ ...f, name: p.name, amount: String(p.amount), category: p.category }))}
+                  className="text-[10px] px-2 py-1 rounded-full border border-border bg-secondary hover:border-primary/40 text-muted-foreground transition-colors">
+                  {p.name} €{p.amount}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input value={subForm.name} onChange={e => setSubForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Service name"
+                className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" />
+              <input value={subForm.amount} onChange={e => setSubForm(f => ({ ...f, amount: e.target.value }))}
+                type="number" placeholder="€ amount" min={0} step={0.01}
+                className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <select value={subForm.cycle} onChange={e => setSubForm(f => ({ ...f, cycle: e.target.value as 'monthly' | 'annual' }))}
+                className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground">
+                <option value="monthly">Monthly</option>
+                <option value="annual">Annual (÷12)</option>
+              </select>
+              <select value={subForm.category} onChange={e => setSubForm(f => ({ ...f, category: e.target.value as Subscription['category'] }))}
+                className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground">
+                {['streaming','fitness','software','news','food','finance','other'].map(c => (
+                  <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={addSubscription} disabled={!subForm.name || !subForm.amount} className="flex-1 bg-primary text-primary-foreground">Add</Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowAddSub(false)} className="flex-1">Cancel</Button>
+            </div>
+          </div>
+        )}
+
+        {subscriptions.length === 0 && !showAddSub ? (
+          <div className="text-center py-6">
+            <p className="text-sm font-medium mb-1">No subscriptions tracked</p>
+            <p className="text-xs text-muted-foreground max-w-xs mx-auto">Add your recurring costs to see your true monthly burn rate — most people underestimate it by 40%.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {subscriptions.map(sub => {
+              const monthly = sub.cycle === 'annual' ? sub.amount / 12 : sub.amount
+              return (
+                <div key={sub.id} className="flex items-center gap-3 group">
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CAT_COLORS[sub.category] ?? '#94a3b8' }} />
+                  <span className="text-sm flex-1">{sub.name}</span>
+                  <span className="text-xs text-muted-foreground">{sub.cycle === 'annual' ? `€${sub.amount}/yr` : ''}</span>
+                  <span className="text-sm font-semibold tabular-nums" style={{ color: CAT_COLORS[sub.category] }}>€{monthly.toFixed(2)}/mo</span>
+                  <button onClick={() => { subscriptionsStore.delete(sub.id); setSubscriptions(subscriptionsStore.getAll()) }}
+                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )
+            })}
+            {subscriptions.length > 0 && (
+              <div className="flex items-center justify-between pt-3 mt-2 border-t border-border text-xs font-semibold">
+                <span className="text-muted-foreground">Monthly total</span>
+                <span className="text-red-400">€{subscriptionsStore.getMonthlyTotal().toFixed(2)}/mo</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Net Worth Tracker */}
+      <div className="forge-card">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-primary" />
+            <span className="font-semibold text-sm">Net Worth</span>
+            {netWorthHistory.length > 0 && (() => {
+              const last = netWorthHistory[netWorthHistory.length - 1]
+              const nw = last.assets - last.liabilities
+              return <span className={`text-sm font-bold ${nw >= 0 ? 'text-green-400' : 'text-red-400'}`}>€{nw.toLocaleString()}</span>
+            })()}
+          </div>
+          <button onClick={() => setShowNW(v => !v)}
+            className="text-xs text-primary hover:underline">
+            {showNW ? 'Cancel' : '+ Log snapshot'}
+          </button>
+        </div>
+
+        {showNW && (
+          <div className="mt-3 space-y-3 p-3 bg-secondary/50 rounded-xl">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="forge-label">Assets (€)</label>
+                <input type="number" step={100} value={nwForm.assets}
+                  onChange={e => setNwForm(f => ({ ...f, assets: e.target.value }))}
+                  placeholder="Savings, investments, property…"
+                  className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" />
+              </div>
+              <div>
+                <label className="forge-label">Liabilities (€)</label>
+                <input type="number" step={100} value={nwForm.liabilities}
+                  onChange={e => setNwForm(f => ({ ...f, liabilities: e.target.value }))}
+                  placeholder="Loans, credit cards, debt…"
+                  className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" />
+              </div>
+            </div>
+            <input value={nwForm.note} onChange={e => setNwForm(f => ({ ...f, note: e.target.value }))}
+              placeholder="Note (optional)"
+              className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" />
+            {nwForm.assets || nwForm.liabilities ? (
+              <div className="text-xs text-muted-foreground">
+                Net Worth preview: <span className={`font-bold ${(parseFloat(nwForm.assets)||0) - (parseFloat(nwForm.liabilities)||0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  €{((parseFloat(nwForm.assets)||0) - (parseFloat(nwForm.liabilities)||0)).toLocaleString()}
+                </span>
+              </div>
+            ) : null}
+            <Button onClick={addNetWorth} size="sm" className="bg-primary text-primary-foreground gap-1">
+              <Save className="w-3.5 h-3.5" />Save snapshot
+            </Button>
+          </div>
+        )}
+
+        {netWorthHistory.length > 0 && (
+          <div className="mt-4">
+            <ResponsiveContainer width="100%" height={120}>
+              <AreaChart data={netWorthHistory.map(e => ({
+                date: format(new Date(e.date), 'MM/dd'),
+                'Net Worth': e.assets - e.liabilities,
+                Assets: e.assets,
+                Liabilities: e.liabilities,
+              }))} margin={{ top: 4, right: 4, bottom: 0, left: 8 }}>
+                <defs>
+                  <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#71717a' }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '11px' }}
+                  formatter={(v) => [`€${Number(v).toLocaleString()}`, '']}
+                />
+                <Area type="monotone" dataKey="Net Worth" stroke="#22c55e" strokeWidth={2} fill="url(#nwGrad)" />
+              </AreaChart>
+            </ResponsiveContainer>
+            <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+              {(() => {
+                const last = netWorthHistory[netWorthHistory.length - 1]
+                const first = netWorthHistory[0]
+                const nw = last.assets - last.liabilities
+                const growth = netWorthHistory.length > 1 ? nw - (first.assets - first.liabilities) : null
+                return (
+                  <>
+                    <div className="bg-secondary/50 rounded-lg p-2">
+                      <div className="text-[10px] text-muted-foreground">Assets</div>
+                      <div className="text-sm font-bold text-green-400">€{last.assets.toLocaleString()}</div>
+                    </div>
+                    <div className="bg-secondary/50 rounded-lg p-2">
+                      <div className="text-[10px] text-muted-foreground">Liabilities</div>
+                      <div className="text-sm font-bold text-red-400">€{last.liabilities.toLocaleString()}</div>
+                    </div>
+                    <div className="bg-secondary/50 rounded-lg p-2">
+                      <div className="text-[10px] text-muted-foreground">{growth !== null ? 'Growth' : 'Net Worth'}</div>
+                      <div className={`text-sm font-bold ${growth !== null ? (growth >= 0 ? 'text-green-400' : 'text-red-400') : (nw >= 0 ? 'text-green-400' : 'text-red-400')}`}>
+                        {growth !== null ? `${growth >= 0 ? '+' : ''}€${growth.toLocaleString()}` : `€${nw.toLocaleString()}`}
+                      </div>
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+          </div>
+        )}
+
+        {netWorthHistory.length === 0 && !showNW && (
+          <p className="text-xs text-muted-foreground mt-2">Track your total assets vs liabilities over time. Log a snapshot monthly to watch your net worth grow.</p>
+        )}
+      </div>
 
       {/* Financial Projections */}
       <div className="forge-card">

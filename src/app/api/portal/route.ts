@@ -9,6 +9,10 @@ export async function POST(req: Request) {
   try {
     const { customerId } = await req.json()
     if (!customerId) return Response.json({ error: 'Missing customerId' }, { status: 400 })
+    // Basic IDOR mitigation: reject anything that doesn't look like a real Stripe customer ID
+    if (typeof customerId !== 'string' || !/^cus_[A-Za-z0-9]{14,}$/.test(customerId)) {
+      return Response.json({ error: 'Invalid customerId' }, { status: 400 })
+    }
 
     const origin = req.headers.get('origin') ?? 'https://forge-life.vercel.app'
     const session = await stripe.billingPortal.sessions.create({

@@ -10,6 +10,21 @@ import type { UserProfile } from '@/lib/types'
 import { isNative, requestNotificationPermission, scheduleDailyVitalsReminder, cancelDailyReminder } from '@/lib/health'
 import Link from 'next/link'
 
+// Section must be at module level — if defined inside the component it gets a
+// new type reference every render, causing React to unmount/remount children
+// (input loses focus and keyboard closes after every keystroke on mobile).
+function Section({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
+  return (
+    <div className="forge-card mb-4">
+      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+        <Icon className="w-4 h-4 text-primary" />
+        <span className="font-semibold text-sm">{title}</span>
+      </div>
+      {children}
+    </div>
+  )
+}
+
 function ReferralBlock({ referralCode, copied, setCopied }: {
   referralCode: string
   copied: boolean
@@ -66,6 +81,7 @@ export default function SettingsPage() {
   const [syncUser, setSyncUser] = useState<string | null>(null)
   const [syncStep, setSyncStep] = useState<'idle' | 'loading' | 'sent'>('idle')
   const [syncStatus, setSyncStatus] = useState<string | null>(null)
+  const [authError, setAuthError] = useState<string | null>(null)
 
   useEffect(() => {
     const p = profileStore.get()
@@ -83,7 +99,14 @@ export default function SettingsPage() {
     setReferralCode(getReferralCode())
     if (supabase) {
       supabase.auth.getUser().then(({ data: { user } }) => {
-        if (user?.email) setSyncUser(user.email)
+        if (user) {
+          // Google OAuth may not expose email — fall back to display name or masked ID
+          const label = user.email
+            ?? user.user_metadata?.full_name
+            ?? user.user_metadata?.name
+            ?? `Google account (${user.id.slice(0, 8)}…)`
+          setSyncUser(label)
+        }
       })
     }
     const proStatus = isProUser()
@@ -129,17 +152,54 @@ export default function SettingsPage() {
     URL.revokeObjectURL(url)
   }
 
+  function exportCSV() {
+    function toCSV(rows: Record<string, unknown>[]): string {
+      if (!rows.length) return ''
+      const keys = Object.keys(rows[0])
+      const header = keys.join(',')
+      const body = rows.map(r => keys.map(k => {
+        const v = r[k]
+        const s = v === null || v === undefined ? '' : String(v)
+        return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+      }).join(',')).join('\n')
+      return `${header}\n${body}`
+    }
+    const sheets: Record<string, string> = {
+      vitals: toCSV(vitalsStore.getAll() as unknown as Record<string, unknown>[]),
+      finance: toCSV(financeStore.getAll() as unknown as Record<string, unknown>[]),
+      workouts: toCSV(workoutsStore.getAll().map(w => ({ ...w, exercises: JSON.stringify(w.exercises) })) as unknown as Record<string, unknown>[]),
+      journal: toCSV(journalStore.getAll() as unknown as Record<string, unknown>[]),
+    }
+    // Bundle as single multi-sheet CSV (each sheet separated by a header line)
+    const combined = Object.entries(sheets)
+      .filter(([, csv]) => csv)
+      .map(([name, csv]) => `# ${name.toUpperCase()}\n${csv}`)
+      .join('\n\n')
+    const blob = new Blob([combined], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `forge-export-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   async function signInWithGoogle() {
-    if (!supabase) return
-    await supabase.auth.signInWithOAuth({
+    if (!supabase) { setAuthError('Sync not available — Supabase not configured.'); return }
+    setAuthError(null)
+    try { sessionStorage.setItem('forge_auth_return', '/settings') } catch {}
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
+    if (error) setAuthError(error.message)
   }
 
   async function sendMagicLink() {
-    if (!supabase || !syncEmail.trim()) return
+    if (!supabase) { setAuthError('Sync not available — Supabase not configured.'); return }
+    if (!syncEmail.trim()) return
     setSyncStep('loading')
+    setAuthError(null)
     const { error } = await supabase.auth.signInWithOtp({
       email: syncEmail.trim(),
       options: {
@@ -147,7 +207,8 @@ export default function SettingsPage() {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     })
-    setSyncStep(error ? 'idle' : 'sent')
+    if (error) { setSyncStep('idle'); setAuthError(error.message) }
+    else setSyncStep('sent')
   }
 
   async function handleSignOut() {
@@ -187,20 +248,17 @@ export default function SettingsPage() {
   }
 
   function resetAllData() {
-    const keys = ['vitals', 'workouts', 'nutrition', 'body', 'finance', 'goals', 'habits', 'tasks', 'chat', 'journal', 'achievements', 'profile']
+    const keys = [
+      'vitals', 'workouts', 'nutrition', 'body', 'finance', 'goals', 'habits', 'tasks',
+      'chat', 'journal', 'achievements', 'profile',
+      'supplement_log', 'learning', 'subscriptions', 'timeline',
+      'body_measurements', 'net_worth',
+      'lifescore_history', 'alignment_history',
+      'oracle_daily', 'oracle_brief',
+    ]
     keys.forEach(k => localStorage.removeItem(`forge_${k}`))
     window.location.href = '/setup'
   }
-
-  const Section = ({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) => (
-    <div className="forge-card mb-4">
-      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
-        <Icon className="w-4 h-4 text-primary" />
-        <span className="font-semibold text-sm">{title}</span>
-      </div>
-      {children}
-    </div>
-  )
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto animate-in fade-in duration-300">
@@ -211,23 +269,28 @@ export default function SettingsPage() {
 
       {/* Profile */}
       <Section title="Profile" icon={User}>
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="space-y-1.5">
             <label className="forge-label">Your name</label>
             <input value={name} onChange={e => setName(e.target.value)}
               className="forge-input"
               placeholder="First name or nickname" />
           </div>
+
+          {/* Identity — core of the app, keep prominent */}
           <div className="space-y-1.5">
-            <label className="forge-label">I am becoming…</label>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-primary uppercase tracking-widest">I am becoming…</label>
+              <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold">CORE</span>
+            </div>
             <textarea
               value={identity}
               onChange={e => setIdentity(e.target.value)}
-              rows={3}
-              placeholder="Describe the person you're becoming (e.g. a disciplined athlete who leads by example)"
-              className="w-full bg-secondary border border-border rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground resize-none outline-none focus:border-primary/50 transition-colors"
+              rows={4}
+              placeholder="A disciplined athlete who is financially free, sleeps 8 hours, and shows up for what matters every single day."
+              className="w-full bg-card border border-primary/20 rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground resize-none outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all leading-relaxed"
             />
-            <p className="text-[10px] text-muted-foreground">Oracle uses this to personalise every recommendation to your vision.</p>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">Oracle feeds this into every analysis. The more specific, the better your insights.</p>
           </div>
           {profile?.primaryGoal && (
             <div className="space-y-1.5">
@@ -264,10 +327,16 @@ export default function SettingsPage() {
         <p className="text-xs text-muted-foreground mb-3">
           All data is stored locally on this device. We never upload or sell your personal data.
         </p>
-        <Button onClick={exportData} variant="outline" className="gap-2 w-full">
-          <Download className="w-4 h-4" />
-          Export All Data (JSON)
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={exportData} variant="outline" className="gap-2 flex-1">
+            <Download className="w-4 h-4" />
+            Export JSON
+          </Button>
+          <Button onClick={exportCSV} variant="outline" className="gap-2 flex-1">
+            <Download className="w-4 h-4" />
+            Export CSV
+          </Button>
+        </div>
       </Section>
 
       {/* Notifications */}
@@ -317,6 +386,23 @@ export default function SettingsPage() {
           <div className="text-xs bg-primary/10 text-primary px-3 py-1.5 rounded-lg font-semibold">Dark</div>
         </div>
       </Section>
+
+      {/* Trial status */}
+      {!pro && profile?.joinedAt && (() => {
+        const days = Math.floor((Date.now() - new Date(profile.joinedAt).getTime()) / 86400000)
+        const left = Math.max(0, 7 - days)
+        return left > 0 ? (
+          <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-primary/5 border border-primary/15 mb-4">
+            <div>
+              <p className="text-xs font-semibold text-primary">{left} day{left !== 1 ? 's' : ''} left in free trial</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Your data is local-only until you connect a backup</p>
+            </div>
+            <Link href="/pricing" className="text-xs font-bold text-primary-foreground bg-primary px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-colors flex-shrink-0">
+              Upgrade
+            </Link>
+          </div>
+        ) : null
+      })()}
 
       {/* Pro / Referral */}
       <Section title={pro ? 'Pro Status' : 'Upgrade to Pro'} icon={Sparkles}>
@@ -436,6 +522,12 @@ export default function SettingsPage() {
                 {syncStep === 'loading' ? '...' : 'Send link'}
               </Button>
             </div>
+            {authError && (
+              <div className="px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20">
+                <p className="text-xs text-red-400 font-medium">Auth error: {authError}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Use email link above as alternative, or check Supabase → Auth → Providers → Google.</p>
+              </div>
+            )}
           </div>
         )}
       </Section>
