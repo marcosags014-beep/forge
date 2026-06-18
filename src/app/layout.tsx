@@ -48,14 +48,34 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         <script dangerouslySetInnerHTML={{ __html: `
-if('serviceWorker' in navigator){
-  // Listen for RELOAD from the cleanup SW, then stop registering any SW
-  navigator.serviceWorker.addEventListener('message',e=>{
-    if(e.data==='RELOAD')window.location.reload();
-  });
-  // Register cleanup SW once — it will unregister itself after wiping all caches
-  navigator.serviceWorker.register('/sw.js').catch(()=>{});
-}
+// Version check — forces hard reload when a new deploy is detected.
+// Uses /api/version which is never cached by service workers.
+(function(){
+  var STORED = 'forge_build_v';
+  fetch('/api/version', {cache:'no-store'})
+    .then(function(r){return r.json()})
+    .then(function(d){
+      var next = d.v;
+      var prev = localStorage.getItem(STORED);
+      if(prev && prev !== next){
+        localStorage.setItem(STORED, next);
+        window.location.reload(true);
+      } else {
+        localStorage.setItem(STORED, next);
+      }
+    }).catch(function(){});
+  // Cleanup any old service workers
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('message',function(e){
+      if(e.data==='RELOAD') window.location.reload(true);
+    });
+    navigator.serviceWorker.register('/sw.js').catch(function(){});
+    // Unregister all SWs after cleanup completes
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      regs.forEach(function(r){ r.unregister(); });
+    });
+  }
+})();
 ` }} />
       </head>
       <body className="min-h-full bg-background text-foreground">
