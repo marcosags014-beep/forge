@@ -585,6 +585,7 @@ export default function SettingsPage() {
       <div className="mt-6 text-center">
         <p className="text-xs text-muted-foreground">FORGE Life OS · Built for ambitious people</p>
         <p className="text-[10px] text-muted-foreground mt-1">Your data never leaves this device without your permission.</p>
+        <p className="text-[10px] text-muted-foreground/40 mt-1 font-mono">v{process.env.NEXT_PUBLIC_BUILD_TIME ?? 'dev'}</p>
         <div className="flex justify-center gap-4 mt-3">
           <Link href="/privacy" className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</Link>
           <Link href="/terms" className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">Terms of Service</Link>
