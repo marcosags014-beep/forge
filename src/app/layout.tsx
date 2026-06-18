@@ -47,7 +47,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}>
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-        <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}` }} />
+        <script dangerouslySetInnerHTML={{ __html: `
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').then(reg=>{
+    reg.addEventListener('updatefound',()=>{
+      const sw=reg.installing;
+      if(!sw)return;
+      sw.addEventListener('statechange',()=>{
+        if(sw.state==='activated'){window.location.reload()}
+      });
+    });
+    // Check for updates every 60s
+    setInterval(()=>reg.update(),60000);
+  });
+  // If SW controls the page and posts a RELOAD message, reload
+  navigator.serviceWorker.addEventListener('message',e=>{
+    if(e.data==='RELOAD')window.location.reload();
+  });
+}
+` }} />
       </head>
       <body className="min-h-full bg-background text-foreground">
         <PostHogProvider>
