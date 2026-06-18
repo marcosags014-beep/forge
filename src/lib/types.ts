@@ -7,7 +7,21 @@ export interface VitalEntry {
   rhr?: number // bpm — optional
   energy: number // 1-10
   mood: number // 1-10
+  feeling?: number // 1-10 — end-of-day calibration score (feeds Oracle correlation)
+  wakeTime?: string // HH:MM — drives peak alertness window
+  steps?: number    // daily step count
+  waterLiters?: number // daily water intake in L
   notes?: string
+}
+
+// ── Life Score History ───────────────────────────────────
+export interface LifeScoreSnapshot {
+  date: string   // YYYY-MM-DD
+  overall: number
+  health: number
+  body: number
+  wealth: number
+  mind: number
 }
 
 export interface WorkoutSet {
@@ -162,12 +176,70 @@ export interface Projection {
   icon: string
 }
 
+// ── Supplements ─────────────────────────────────────────
+export interface SupplementEntry {
+  id: string
+  date: string       // YYYY-MM-DD
+  name: string
+  doseMg: number
+  timing: 'morning' | 'pre-workout' | 'post-workout' | 'evening' | 'with-meal'
+}
+
+// ── Learning / Studies ───────────────────────────────────
+export type LearningType = 'book' | 'course' | 'podcast' | 'video' | 'article'
+export type LearningStatus = 'backlog' | 'in-progress' | 'done'
+
+export interface LearningItem {
+  id: string
+  title: string
+  author?: string
+  type: LearningType
+  status: LearningStatus
+  progress: number   // 0-100
+  notes?: string
+  startedAt?: string
+  completedAt?: string
+  addedAt: string
+}
+
+// ── Subscriptions ───────────────────────────────────────
+export interface Subscription {
+  id: string
+  name: string
+  amount: number      // always stored as monthly equivalent
+  cycle: 'monthly' | 'annual'
+  category: 'streaming' | 'fitness' | 'software' | 'news' | 'food' | 'finance' | 'other'
+  color?: string
+}
+
 // ── Journal ─────────────────────────────────────────────
 export interface JournalEntry {
   id: string
   date: string
   content: string
   mood?: number
+}
+
+// ── Body Measurements ───────────────────────────────────
+export interface BodyMeasurement {
+  id: string
+  date: string      // YYYY-MM-DD
+  waist?: number    // cm
+  chest?: number    // cm
+  hips?: number     // cm
+  arms?: number     // cm (bicep)
+  thighs?: number   // cm
+  neck?: number     // cm
+  note?: string
+}
+
+// ── Net Worth ────────────────────────────────────────────
+export interface NetWorthEntry {
+  id: string
+  date: string       // YYYY-MM-DD
+  assets: number     // €
+  liabilities: number // €
+  note?: string
 }
 
 export type TimelineCategory = 'meal' | 'workout' | 'stimulant' | 'note' | 'energy'
@@ -180,4 +252,7 @@ export interface TimelineEntry {
   title: string
   detail?: string
   energy?: number    // 1-10 for energy check-ins
+  caffeineMg?: number // mg — for stimulant entries, drives pharmacokinetics curve
+  planned?: boolean  // true = Oracle/user-planned (not yet happened)
+  source?: 'oracle' | 'user'
 }

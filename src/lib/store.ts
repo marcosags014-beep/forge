@@ -1,8 +1,8 @@
 import type {
   VitalEntry, WorkoutEntry, NutritionEntry, BodyMetric,
-  Transaction, Goal, Habit, Task, ChatMessage,
-  LifeScores, InsightCard, Achievement, UserProfile, JournalEntry, Projection, TimelineEntry,
-  AlignmentSnapshot
+  Transaction, Subscription, SupplementEntry, LearningItem, Goal, Habit, Task, ChatMessage,
+  LifeScores, LifeScoreSnapshot, InsightCard, Achievement, UserProfile, JournalEntry, Projection, TimelineEntry,
+  AlignmentSnapshot, BodyMeasurement, NetWorthEntry
 } from './types'
 
 // ── Core store helpers ───────────────────────────────────
@@ -126,6 +126,48 @@ export const financeStore = {
   },
 }
 
+export const supplementLogStore = {
+  getAll: () => getStore<SupplementEntry>('supplements'),
+  getForDate: (date: string) => getStore<SupplementEntry>('supplements').filter(s => s.date === date),
+  save: (entry: SupplementEntry) => {
+    const all = getStore<SupplementEntry>('supplements')
+    const idx = all.findIndex(s => s.id === entry.id)
+    if (idx >= 0) all[idx] = entry; else all.unshift(entry)
+    if (all.length > CAP) all.length = CAP
+    setStore('supplements', all)
+  },
+  delete: (id: string) => setStore('supplements', getStore<SupplementEntry>('supplements').filter(s => s.id !== id)),
+  getTodayNames: () => {
+    const todayStr = new Date().toISOString().split('T')[0]
+    return new Set(getStore<SupplementEntry>('supplements').filter(s => s.date === todayStr).map(s => s.name))
+  },
+}
+
+export const learningStore = {
+  getAll: () => getStore<LearningItem>('learning'),
+  getByStatus: (status: LearningItem['status']) => getStore<LearningItem>('learning').filter(l => l.status === status),
+  save: (item: LearningItem) => {
+    const all = getStore<LearningItem>('learning')
+    const idx = all.findIndex(l => l.id === item.id)
+    if (idx >= 0) all[idx] = item; else all.unshift(item)
+    setStore('learning', all)
+  },
+  delete: (id: string) => setStore('learning', getStore<LearningItem>('learning').filter(l => l.id !== id)),
+}
+
+export const subscriptionsStore = {
+  getAll: () => getStore<Subscription>('subscriptions'),
+  save: (sub: Subscription) => {
+    const all = getStore<Subscription>('subscriptions')
+    const idx = all.findIndex(s => s.id === sub.id)
+    if (idx >= 0) all[idx] = sub; else all.unshift(sub)
+    setStore('subscriptions', all)
+  },
+  delete: (id: string) => setStore('subscriptions', getStore<Subscription>('subscriptions').filter(s => s.id !== id)),
+  getMonthlyTotal: () => getStore<Subscription>('subscriptions').reduce((sum, s) => sum + (s.cycle === 'annual' ? s.amount / 12 : s.amount), 0),
+  getAnnualTotal: () => getStore<Subscription>('subscriptions').reduce((sum, s) => sum + (s.cycle === 'annual' ? s.amount : s.amount * 12), 0),
+}
+
 export const goalsStore = {
   getAll: () => getStore<Goal>('goals'),
   save: (goal: Goal) => {
@@ -222,6 +264,17 @@ export const timelineStore = {
     getStore<TimelineEntry>('timeline')
       .filter(e => e.date === date)
       .sort((a, b) => a.time.localeCompare(b.time)),
+  getForWeek: (monday: string) => {
+    const start = new Date(monday)
+    const dates = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start)
+      d.setDate(start.getDate() + i)
+      return d.toISOString().split('T')[0]
+    })
+    return getStore<TimelineEntry>('timeline')
+      .filter(e => dates.includes(e.date))
+      .sort((a, b) => a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date))
+  },
   save: (entry: TimelineEntry) => {
     const all = getStore<TimelineEntry>('timeline')
     const idx = all.findIndex(e => e.id === entry.id)
@@ -264,6 +317,30 @@ export function getAlignmentScore(): { score: number; habitRate: number; keptRat
     : Math.round(habitRate * 0.6 + keptRate * 0.4)
 
   return { score, habitRate, keptRate, overdueCount }
+}
+
+// ── Life Score History ───────────────────────────────────
+export const lifeScoreHistoryStore = {
+  getAll: () => getStore<LifeScoreSnapshot>('lifescore_history'),
+  getRecent: (days: number) => getStore<LifeScoreSnapshot>('lifescore_history').slice(0, days),
+  record: () => {
+    const scores = calculateLifeScores()
+    const todayStr = today()
+    const snap: LifeScoreSnapshot = {
+      date: todayStr,
+      overall: scores.overall,
+      health: scores.health.score,
+      body: scores.body.score,
+      wealth: scores.wealth.score,
+      mind: scores.mind.score,
+    }
+    const all = getStore<LifeScoreSnapshot>('lifescore_history')
+    const idx = all.findIndex(s => s.date === todayStr)
+    if (idx >= 0) all[idx] = snap; else all.unshift(snap)
+    if (all.length > 90) all.length = 90
+    setStore('lifescore_history', all)
+    return snap
+  },
 }
 
 // ── Alignment Score History ──────────────────────────────
@@ -817,12 +894,104 @@ export function getProjections(): Projection[] {
   return projections.slice(0, 3)
 }
 
+export function getCaffeineLevel(entries: import('./types').TimelineEntry[], atTimeHHMM: string): number {
+  const stimulants = entries.filter(e => e.category === 'stimulant' && e.caffeineMg && e.caffeineMg > 0)
+  if (stimulants.length === 0) return 0
+  const [h, m] = atTimeHHMM.split(':').map(Number)
+  const atMinutes = h * 60 + m
+  return stimulants.reduce((total, s) => {
+    const [sh, sm] = s.time.split(':').map(Number)
+    const doseMinutes = sh * 60 + sm
+    const hoursElapsed = (atMinutes - doseMinutes) / 60
+    if (hoursElapsed < 0) return total // not consumed yet
+    return total + (s.caffeineMg ?? 0) * Math.pow(0.5, hoursElapsed / 5)
+  }, 0)
+}
+
+export function getCaffeineCurve(entries: import('./types').TimelineEntry[]): { time: string; level: number }[] {
+  const points: { time: string; level: number }[] = []
+  for (let h = 6; h <= 23; h++) {
+    for (const m of [0, 30]) {
+      const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+      const level = Math.round(getCaffeineLevel(entries, timeStr))
+      points.push({ time: `${h > 12 ? h - 12 : (h === 0 ? 12 : h)}:${m.toString().padStart(2, '0')}${h >= 12 ? 'pm' : 'am'}`, level })
+    }
+  }
+  return points
+}
+
+export function getPeakAlertnessWindow(wakeTime: string): { start: string; end: string } | null {
+  if (!wakeTime) return null
+  const [h, m] = wakeTime.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return null
+  const wakeMinutes = h * 60 + m
+  const fmt = (mins: number) => {
+    const h24 = Math.floor((mins % (24 * 60)) / 60)
+    const mn = mins % 60
+    const h12 = h24 > 12 ? h24 - 12 : (h24 === 0 ? 12 : h24)
+    const ampm = h24 >= 12 ? 'PM' : 'AM'
+    return `${h12}:${mn.toString().padStart(2, '0')} ${ampm}`
+  }
+  return { start: fmt(wakeMinutes + 6 * 60), end: fmt(wakeMinutes + 8 * 60) }
+}
+
+export function getFeelingCorrelations(): { avgFeeling: number; correlations: string[] } | null {
+  const vitals = vitalsStore.getRecent(30).filter(v => v.feeling !== undefined && v.feeling > 0)
+  if (vitals.length < 3) return null
+  const avgFeeling = Math.round((vitals.reduce((s, v) => s + (v.feeling ?? 0), 0) / vitals.length) * 10) / 10
+  const correlations: string[] = []
+  const goodDays = vitals.filter(v => (v.feeling ?? 0) >= 7)
+  const badDays = vitals.filter(v => (v.feeling ?? 0) <= 4)
+  if (goodDays.length >= 2 && badDays.length >= 2) {
+    const goodSleep = goodDays.reduce((s, v) => s + v.sleepHours, 0) / goodDays.length
+    const badSleep = badDays.reduce((s, v) => s + v.sleepHours, 0) / badDays.length
+    if (goodSleep - badSleep > 0.5) correlations.push(`${(goodSleep - badSleep).toFixed(1)}h more sleep → feeling score ${Math.round((goodDays.reduce((s, v) => s + (v.feeling ?? 0), 0) / goodDays.length) - (badDays.reduce((s, v) => s + (v.feeling ?? 0), 0) / badDays.length))} pts higher`)
+    const goodHRV = goodDays.filter(v => v.hrv).reduce((s, v) => s + (v.hrv ?? 0), 0) / (goodDays.filter(v => v.hrv).length || 1)
+    const badHRV = badDays.filter(v => v.hrv).reduce((s, v) => s + (v.hrv ?? 0), 0) / (badDays.filter(v => v.hrv).length || 1)
+    if (goodHRV - badHRV > 5) correlations.push(`HRV ${Math.round(goodHRV)}ms on good days vs ${Math.round(badHRV)}ms on low-feeling days`)
+  }
+  return { avgFeeling, correlations }
+}
+
+// ── Body Measurements ────────────────────────────────────
+export const bodyMeasurementsStore = {
+  getAll: () => getStore<BodyMeasurement>('body_measurements'),
+  getRecent: (n: number) => getStore<BodyMeasurement>('body_measurements').slice(0, n),
+  getLast: () => getStore<BodyMeasurement>('body_measurements')[0] ?? null,
+  save: (entry: BodyMeasurement) => {
+    const all = getStore<BodyMeasurement>('body_measurements')
+    const idx = all.findIndex(e => e.date === entry.date)
+    if (idx >= 0) all[idx] = entry; else all.unshift(entry)
+    if (all.length > CAP) all.length = CAP
+    setStore('body_measurements', all)
+  },
+  delete: (id: string) => setStore('body_measurements', getStore<BodyMeasurement>('body_measurements').filter(e => e.id !== id)),
+}
+
+// ── Net Worth ────────────────────────────────────────────
+export const netWorthStore = {
+  getAll: () => getStore<NetWorthEntry>('net_worth').sort((a, b) => a.date.localeCompare(b.date)),
+  getLast: () => {
+    const all = getStore<NetWorthEntry>('net_worth')
+    return all.length ? all.reduce((a, b) => a.date > b.date ? a : b) : null
+  },
+  save: (entry: NetWorthEntry) => {
+    const all = getStore<NetWorthEntry>('net_worth')
+    const idx = all.findIndex(e => e.date === entry.date)
+    if (idx >= 0) all[idx] = entry; else all.push(entry)
+    setStore('net_worth', all)
+  },
+  delete: (id: string) => setStore('net_worth', getStore<NetWorthEntry>('net_worth').filter(e => e.id !== id)),
+}
+
 export function getAllDataForAI() {
   const vitals = vitalsStore.getRecent(7)
   const workouts = workoutsStore.getRecent(7)
   const finance = financeStore.getAll()
   const profile = profileStore.get()
   const alignment = getAlignmentScore()
+  const todayVital = vitals.find(v => v.date === today())
+  const feelingCorrelations = getFeelingCorrelations()
   return {
     profile,
     isNewUser: vitals.length === 0 && workouts.length === 0 && finance.length === 0,
@@ -840,5 +1009,7 @@ export function getAllDataForAI() {
     alignment,
     lifeScores: calculateLifeScores(),
     insights: generateInsights().slice(0, 5),
+    peakAlertnessWindow: todayVital?.wakeTime ? getPeakAlertnessWindow(todayVital.wakeTime) : null,
+    feelingCorrelations,
   }
 }

@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Send, Sparkles, Trash2, User, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { chatStore, generateId, getAllDataForAI, profileStore, isProUser, getOracleUsage, incrementOracleUsage, FREE_ORACLE_DAILY, calculateLifeScores, vitalsStore, habitsStore, goalsStore } from '@/lib/store'
-import type { ChatMessage, UserProfile } from '@/lib/types'
-import { Plus, Check, Target } from 'lucide-react'
+import { chatStore, generateId, getAllDataForAI, profileStore, isProUser, getOracleUsage, incrementOracleUsage, FREE_ORACLE_DAILY, calculateLifeScores, vitalsStore, habitsStore, goalsStore, workoutsStore, today, timelineStore } from '@/lib/store'
+import type { ChatMessage, UserProfile, TimelineCategory } from '@/lib/types'
+import { Plus, Check, Target, Dumbbell, CalendarDays } from 'lucide-react'
 import Link from 'next/link'
 
 const AGENT_MODES = [
@@ -43,11 +43,31 @@ function MarkdownLine({ text }: { text: string }) {
 type OracleAction =
   | { type: 'habit'; name: string; category: 'health' | 'fitness' | 'wealth' | 'mind' }
   | { type: 'goal'; title: string; category: 'health' | 'fitness' | 'finance' | 'career' | 'personal'; months: number }
+  | { type: 'workout'; raw: string; duration: number }
+  | { type: 'plan'; date: string; time: string; category: TimelineCategory; title: string; detail?: string }
+
+function parseWorkoutRaw(raw: string): { name: string; sets: { reps: number; weight: number }[] }[] {
+  return raw.split(',').map(part => {
+    const trimmed = part.trim()
+    // Format: "Bench Press:3x8@80kg"
+    const match = trimmed.match(/^(.+?):\s*(\d+)x(\d+)@([\d.]+)kg?$/i)
+    if (match) {
+      const sets = Array.from({ length: parseInt(match[2]) }, () => ({
+        reps: parseInt(match[3]),
+        weight: parseFloat(match[4]),
+      }))
+      return { name: match[1].trim(), sets }
+    }
+    return { name: trimmed, sets: [{ reps: 1, weight: 0 }] }
+  }).filter(e => e.name)
+}
 
 function parseOracleActions(content: string): { clean: string; actions: OracleAction[] } {
   const actions: OracleAction[] = []
-  const habitRe = /\[ADD_HABIT:\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]/g
-  const goalRe  = /\[ADD_GOAL:\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*(\d+)\s*\]/g
+  const habitRe   = /\[ADD_HABIT:\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]/g
+  const goalRe    = /\[ADD_GOAL:\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*(\d+)\s*\]/g
+  const workoutRe = /\[LOG_WORKOUT:\s*([^|\]]+?)\s*\|\s*(\d+)min\s*\]/g
+  const planRe    = /\[PLAN_DAY:\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^|\]]+?)\s*\|\s*([^|\]]+?)(?:\s*\|\s*([^\]]*?))?\s*\]/g
 
   let clean = content
   let m: RegExpExecArray | null
@@ -62,8 +82,17 @@ function parseOracleActions(content: string): { clean: string; actions: OracleAc
     const goalCat = (['health','fitness','finance','career','personal'].includes(cat) ? cat : 'personal') as 'health' | 'fitness' | 'finance' | 'career' | 'personal'
     actions.push({ type: 'goal', title: m[1].trim(), category: goalCat, months: parseInt(m[3]) || 3 })
   }
+  while ((m = workoutRe.exec(content)) !== null) {
+    actions.push({ type: 'workout', raw: m[1].trim(), duration: parseInt(m[2]) || 60 })
+  }
+  while ((m = planRe.exec(content)) !== null) {
+    const validCats = ['meal','workout','stimulant','note','energy']
+    const cat = m[3].trim().toLowerCase()
+    const planCat = (validCats.includes(cat) ? cat : 'note') as TimelineCategory
+    actions.push({ type: 'plan', date: m[1].trim(), time: m[2].trim(), category: planCat, title: m[4].trim(), detail: m[5]?.trim() || undefined })
+  }
 
-  clean = clean.replace(habitRe, '').replace(goalRe, '').replace(/\n{3,}/g, '\n\n').trim()
+  clean = clean.replace(habitRe, '').replace(goalRe, '').replace(workoutRe, '').replace(planRe, '').replace(/\n{3,}/g, '\n\n').trim()
   return { clean, actions }
 }
 
@@ -72,28 +101,98 @@ function ActionButtons({ actions }: { actions: OracleAction[] }) {
 
   if (actions.length === 0) return null
 
+  // Group plan actions by date
+  const planActions = actions.filter(a => a.type === 'plan') as Extract<OracleAction, { type: 'plan' }>[]
+  const otherActions = actions.filter(a => a.type !== 'plan')
+  const planDates = [...new Set(planActions.map(a => a.date))].sort()
+
   function addAction(action: OracleAction) {
-    const key = action.type + ':' + (action.type === 'habit' ? action.name : action.title)
+    const key = action.type === 'habit' ? `habit:${action.name}`
+      : action.type === 'goal' ? `goal:${action.title}`
+      : action.type === 'workout' ? `workout:${action.raw}`
+      : `plan:${action.date}:${action.time}:${action.title}`
     if (added.has(key)) return
 
     if (action.type === 'habit') {
       habitsStore.save({ id: generateId(), name: action.name, category: action.category, completions: [] })
-    } else {
+    } else if (action.type === 'goal') {
       const deadline = new Date()
       deadline.setMonth(deadline.getMonth() + action.months)
       goalsStore.save({ id: generateId(), title: action.title, category: action.category, targetDate: deadline.toISOString().split('T')[0], status: 'active', progress: 0, milestones: [] })
+    } else if (action.type === 'workout') {
+      const exercises = parseWorkoutRaw(action.raw)
+      workoutsStore.save({ id: generateId(), date: today(), exercises, duration: action.duration, notes: 'Logged via Oracle' })
+    } else if (action.type === 'plan') {
+      timelineStore.save({ id: generateId(), date: action.date, time: action.time, category: action.category, title: action.title, detail: action.detail, planned: true, source: 'oracle' })
     }
     setAdded(prev => new Set([...prev, key]))
   }
 
+  function addAllForDate(date: string) {
+    planActions.filter(a => a.date === date).forEach(addAction)
+  }
+
+  const allDateAdded = (date: string) =>
+    planActions.filter(a => a.date === date).every(a => added.has(`plan:${a.date}:${a.time}:${a.title}`))
+
   return (
     <div className="mt-3 flex flex-col gap-2">
-      {actions.map(action => {
-        const key = action.type + ':' + (action.type === 'habit' ? action.name : action.title)
+      {/* Plan actions — grouped by date with bulk-add */}
+      {planDates.map(date => {
+        const dayActions = planActions.filter(a => a.date === date)
+        const allDone = allDateAdded(date)
+        const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })
+        return (
+          <div key={date} className="border border-primary/20 rounded-xl overflow-hidden">
+            <div className={`flex items-center justify-between px-3 py-2 ${allDone ? 'bg-green-500/10' : 'bg-primary/5'}`}>
+              <div className="flex items-center gap-2 text-xs font-medium">
+                <CalendarDays className={`w-3.5 h-3.5 ${allDone ? 'text-green-400' : 'text-primary'}`} />
+                <span className={allDone ? 'text-green-400' : 'text-primary'}>{dateLabel}</span>
+                <span className="text-muted-foreground">— {dayActions.length} blocks</span>
+              </div>
+              <button
+                onClick={() => addAllForDate(date)}
+                disabled={allDone}
+                className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all ${
+                  allDone ? 'text-green-400 cursor-default' : 'bg-primary/20 text-primary hover:bg-primary/30'
+                }`}
+              >
+                {allDone ? 'Added ✓' : 'Add all to Timeline'}
+              </button>
+            </div>
+            <div className="divide-y divide-border/50">
+              {dayActions.map(action => {
+                const key = `plan:${action.date}:${action.time}:${action.title}`
+                const done = added.has(key)
+                return (
+                  <div key={key} className={`flex items-center justify-between px-3 py-1.5 text-xs ${done ? 'opacity-50' : ''}`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-muted-foreground font-mono w-10 flex-shrink-0">{action.time}</span>
+                      <span className="font-medium truncate">{action.title}</span>
+                      {action.detail && <span className="text-muted-foreground truncate hidden sm:block">— {action.detail}</span>}
+                    </div>
+                    <button
+                      onClick={() => addAction(action)}
+                      disabled={done}
+                      className={`flex-shrink-0 ml-2 transition-all ${done ? 'text-green-400 cursor-default' : 'text-muted-foreground hover:text-primary'}`}
+                    >
+                      {done ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+
+      {/* Other actions */}
+      {otherActions.map(action => {
+        const key = action.type === 'habit' ? `habit:${action.name}` : action.type === 'goal' ? `goal:${action.title}` : `workout:${(action as Extract<OracleAction, {type:'workout'}>).raw}`
         const done = added.has(key)
-        const label = action.type === 'habit' ? action.name : action.title
-        const icon = action.type === 'habit' ? <Plus className="w-3.5 h-3.5" /> : <Target className="w-3.5 h-3.5" />
-        const typeLabel = action.type === 'habit' ? 'Add habit' : 'Add goal'
+        const label = action.type === 'habit' ? (action as Extract<OracleAction, {type:'habit'}>).name : action.type === 'goal' ? (action as Extract<OracleAction, {type:'goal'}>).title : `${(action as Extract<OracleAction, {type:'workout'}>).duration}min workout`
+        const icon = action.type === 'habit' ? <Plus className="w-3.5 h-3.5" /> : action.type === 'goal' ? <Target className="w-3.5 h-3.5" /> : <Dumbbell className="w-3.5 h-3.5" />
+        const typeLabel = action.type === 'habit' ? 'Add habit' : action.type === 'goal' ? 'Add goal' : 'Log workout'
         return (
           <button
             key={key}

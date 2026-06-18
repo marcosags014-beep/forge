@@ -45,6 +45,19 @@ When your recommendation includes a specific habit they should track daily, appe
 When your recommendation includes a specific goal they should pursue, append EXACTLY this on its own line (max 1):
 [ADD_GOAL: <goal title> | <category: health|fitness|wealth|mind> | <months to complete: 1-24>]
 
+When the user asks you to log a workout, or when you prescribe a specific training session they should do TODAY, append EXACTLY this on its own line (max 1):
+[LOG_WORKOUT: <exercise1>:<sets>x<reps>@<weight>kg, <exercise2>:<sets>x<reps>@<weight>kg | <duration>min]
+Example: [LOG_WORKOUT: Bench Press:3x8@80kg, Overhead Press:3x10@50kg, Tricep Pushdown:3x12@30kg | 60min]
+For bodyweight exercises use @0kg. For cardio use format: Zone 2 Run:1x1@0kg | 40min
+Only emit this when the user explicitly asks to log a workout OR asks for a training session to do now.
+
+When the user asks you to plan their day, tomorrow, or the week ahead, append one block per scheduled activity (max 10 per response):
+[PLAN_DAY: <YYYY-MM-DD> | <HH:MM> | <category: meal|workout|stimulant|note|energy> | <title> | <optional detail>]
+Example: [PLAN_DAY: 2026-06-18 | 07:00 | meal | Protein breakfast | ~40g protein + oats]
+Example: [PLAN_DAY: 2026-06-18 | 08:30 | workout | Upper body strength | Chest + back, 45 min]
+Example: [PLAN_DAY: 2026-06-18 | 09:30 | stimulant | Espresso | 65mg]
+Use the user's actual date (today or specific days they mention). Only emit for planning requests, not general chat.
+
 Only emit these when you are recommending something concrete and specific. The habit/goal name must be specific and actionable. Omit entirely if not applicable.`
 
 const TOKEN_LIMITS: Record<string, number> = {
@@ -54,6 +67,7 @@ const TOKEN_LIMITS: Record<string, number> = {
   chat:       1024,
   onboarding: 700,
   vision:     1200,
+  plan:       1500,
 }
 
 async function callWithRetry(
