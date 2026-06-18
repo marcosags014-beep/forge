@@ -219,7 +219,7 @@ Return ONLY the JSON. No markdown, no explanation.`,
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex flex-col items-center pt-12 px-6 pb-10">
       <div className="w-full max-w-lg">
 
         {/* Logo */}
