@@ -846,13 +846,15 @@ export default function BodyPage() {
         <h1 className="text-3xl font-bold text-gradient">Body</h1>
       </div>
 
-      <div className="forge-tabs w-fit mb-6">
-        {tabs.map(({ id, label, icon: Icon }) => (
-          <button key={id} onClick={() => setTab(id)}
-            className={`forge-tab ${tab === id ? 'forge-tab-active' : ''}`}>
-            <Icon className="w-3.5 h-3.5" />{label}
-          </button>
-        ))}
+      <div className="overflow-x-auto scrollbar-hide -mx-6 px-6 mb-6">
+        <div className="forge-tabs w-max">
+          {tabs.map(({ id, label, icon: Icon }) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={`forge-tab whitespace-nowrap ${tab === id ? 'forge-tab-active' : ''}`}>
+              <Icon className="w-3.5 h-3.5" />{label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === 'workout' && <WorkoutLogger />}

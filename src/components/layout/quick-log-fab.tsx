@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Plus, X, Mic, MicOff, Loader2, Check, ArrowRight, Heart, Dumbbell, DollarSign, Save } from 'lucide-react'
+import { Plus, X, Mic, MicOff, Loader2, Check, ArrowRight, Heart, Dumbbell, DollarSign, Save, Camera, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { vitalsStore, workoutsStore, financeStore, generateId, today, getAllDataForAI } from '@/lib/store'
+import { vitalsStore, workoutsStore, financeStore, nutritionStore, generateId, today, getAllDataForAI } from '@/lib/store'
 import { parseCapture, CAPTURE_EMOJI, CAPTURE_COLOR, type CaptureResult } from '@/lib/capture'
 
 type Mode = 'capture' | 'quicklog'
-type QuickTab = 'vitals' | 'workout' | 'expense'
+type QuickTab = 'vitals' | 'workout' | 'expense' | 'food'
 
 // Web Speech API types
 declare global {
@@ -65,6 +65,9 @@ export function QuickLogFAB() {
   const [vForm, setVForm] = useState({ sleep: '7', energy: '7', mood: '7', hrv: '' })
   const [wForm, setWForm] = useState({ name: '', duration: '45' })
   const [eForm, setEForm] = useState<{ amount: string; description: string; category: string; type: 'income' | 'expense' }>({ amount: '', description: '', category: 'Food', type: 'expense' })
+  const [foodAnalyzing, setFoodAnalyzing] = useState(false)
+  const [foodResult, setFoodResult] = useState<{ foods: string[]; calories: number; protein: number; carbs: number; fat: number } | null>(null)
+  const foodInputRef = useRef<HTMLInputElement>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -146,6 +149,34 @@ If you can create something, do it. If it's a question or unclear, use "none" an
   }
 
   function flashQuick() { setQuickSaved(true); setTimeout(() => { setQuickSaved(false); close() }, 1200) }
+
+  async function analyzeFood(file: File) {
+    setFoodAnalyzing(true)
+    setFoodResult(null)
+    try {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; img.src = url })
+      URL.revokeObjectURL(url)
+      const MAX = 1024
+      const ratio = Math.min(MAX / img.width, MAX / img.height, 1)
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.width * ratio); canvas.height = Math.round(img.height * ratio)
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+      const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]
+      const res = await fetch('/api/analyze-food', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageData: base64, mediaType: 'image/jpeg' }) })
+      const data = await res.json()
+      if (data.calories || data.protein) setFoodResult({ foods: data.foods ?? [], calories: data.calories ?? 0, protein: data.protein ?? 0, carbs: data.carbs ?? 0, fat: data.fat ?? 0 })
+    } catch { /* silent */ } finally { setFoodAnalyzing(false) }
+  }
+
+  function saveFoodToNutrition() {
+    if (!foodResult) return
+    const existing = nutritionStore.getLast()
+    const base = existing?.date === today() ? existing : null
+    nutritionStore.save({ id: generateId(), date: today(), calories: (base?.calories ?? 0) + foodResult.calories, protein: (base?.protein ?? 0) + foodResult.protein, carbs: (base?.carbs ?? 0) + foodResult.carbs, fat: (base?.fat ?? 0) + foodResult.fat, water: base?.water ?? 2, meals: base?.meals ?? [] })
+    flashQuick()
+  }
 
   function logVitals() {
     vitalsStore.save({ id: generateId(), date: today(), sleepHours: parseFloat(vForm.sleep) || 7, sleepQuality: 7, hrv: vForm.hrv ? parseFloat(vForm.hrv) : undefined, energy: parseInt(vForm.energy), mood: parseInt(vForm.mood) })
@@ -274,13 +305,14 @@ If you can create something, do it. If it's a question or unclear, use "none" an
           {mode === 'quicklog' && (
             <div className="p-4 space-y-3">
               <div className="flex gap-1 p-1 bg-secondary rounded-xl">
-                {(['vitals', 'workout', 'expense'] as QuickTab[]).map(t => {
-                  const icons: Record<QuickTab, React.ElementType> = { vitals: Heart, workout: Dumbbell, expense: DollarSign }
+                {(['vitals', 'workout', 'food', 'expense'] as QuickTab[]).map(t => {
+                  const icons: Record<QuickTab, React.ElementType> = { vitals: Heart, workout: Dumbbell, expense: DollarSign, food: Camera }
+                  const labels: Record<QuickTab, string> = { vitals: 'Vitals', workout: 'Workout', expense: 'Expense', food: 'Food' }
                   const Icon = icons[t]
                   return (
                     <button key={t} onClick={() => setQuickTab(t)}
                       className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all ${quickTab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>
-                      <Icon className="w-3 h-3" />{t.charAt(0).toUpperCase() + t.slice(1)}
+                      <Icon className="w-3 h-3" />{labels[t]}
                     </button>
                   )
                 })}
@@ -322,6 +354,41 @@ If you can create something, do it. If it's a question or unclear, use "none" an
                   <Button onClick={logWorkout} disabled={!wForm.name} size="sm" className="w-full bg-primary text-primary-foreground gap-2">
                     <Save className="w-3.5 h-3.5" />{quickSaved ? '✓ Saved!' : 'Log Workout'}
                   </Button>
+                </div>
+              )}
+
+              {quickTab === 'food' && (
+                <div className="space-y-3">
+                  {!foodResult ? (
+                    <label className={`w-full flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-dashed transition-all cursor-pointer ${foodAnalyzing ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-primary/40 hover:bg-primary/5'}`}>
+                      {foodAnalyzing
+                        ? <><RefreshCw className="w-6 h-6 text-primary animate-spin" /><span className="text-xs text-primary font-medium">Analyzing…</span></>
+                        : <><Camera className="w-6 h-6 text-primary" /><span className="text-xs font-medium">Take photo or choose from library</span><span className="text-[10px] text-muted-foreground">Macros added automatically</span></>
+                      }
+                      <input type="file" accept="image/*" className="hidden" ref={foodInputRef}
+                        onChange={e => { const f = e.target.files?.[0]; if (f) analyzeFood(f) }} />
+                    </label>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 space-y-1.5">
+                        <p className="text-xs font-semibold text-green-400">{foodResult.foods.join(', ') || 'Food detected'}</p>
+                        <div className="grid grid-cols-4 gap-2 text-center">
+                          {[['Cal', foodResult.calories, 'kcal'], ['Protein', foodResult.protein, 'g'], ['Carbs', foodResult.carbs, 'g'], ['Fat', foodResult.fat, 'g']].map(([l, v, u]) => (
+                            <div key={String(l)} className="bg-card rounded-lg p-1.5">
+                              <div className="text-[9px] text-muted-foreground">{l}</div>
+                              <div className="text-xs font-bold">{v}{u}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <Button onClick={saveFoodToNutrition} size="sm" className="w-full bg-primary text-primary-foreground gap-2">
+                        <Save className="w-3.5 h-3.5" />{quickSaved ? '✓ Added to today!' : 'Add to nutrition'}
+                      </Button>
+                      <button onClick={() => setFoodResult(null)} className="w-full text-xs text-muted-foreground hover:text-foreground py-1 transition-colors">
+                        Try another photo
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
