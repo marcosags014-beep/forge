@@ -58,6 +58,11 @@ Example: [PLAN_DAY: 2026-06-18 | 08:30 | workout | Upper body strength | Chest +
 Example: [PLAN_DAY: 2026-06-18 | 09:30 | stimulant | Espresso | 65mg]
 Use the user's actual date (today or specific days they mention). Only emit for planning requests, not general chat.
 
+When the user asks for learning or reading recommendations, append one block per resource (max 8):
+[RECOMMEND: <title> | <author/source> | <type: book|course|podcast|video|article> | <category: fitness|wealth|mind|health|productivity> | <one-sentence reason tied to their specific data/goal>]
+Example: [RECOMMEND: Outlive | Peter Attia | book | health | Your HRV trend suggests you need a deeper longevity protocol]
+Only emit for recommendation requests. Titles must be real, verifiable resources — never invent them.
+
 Only emit these when you are recommending something concrete and specific. The habit/goal name must be specific and actionable. Omit entirely if not applicable.`
 
 const TOKEN_LIMITS: Record<string, number> = {
@@ -68,6 +73,7 @@ const TOKEN_LIMITS: Record<string, number> = {
   onboarding: 700,
   vision:     1200,
   plan:       1500,
+  recommend:  1200,
 }
 
 async function callWithRetry(
