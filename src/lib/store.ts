@@ -2,7 +2,7 @@ import type {
   VitalEntry, WorkoutEntry, NutritionEntry, BodyMetric,
   Transaction, Subscription, SupplementEntry, LearningItem, Goal, Habit, Task, ChatMessage,
   LifeScores, LifeScoreSnapshot, InsightCard, Achievement, UserProfile, JournalEntry, Projection, TimelineEntry,
-  AlignmentSnapshot, BodyMeasurement, NetWorthEntry
+  AlignmentSnapshot, BodyMeasurement, NetWorthEntry, BodyPhoto
 } from './types'
 
 // ── Core store helpers ───────────────────────────────────
@@ -968,6 +968,19 @@ export const bodyMeasurementsStore = {
   delete: (id: string) => setStore('body_measurements', getStore<BodyMeasurement>('body_measurements').filter(e => e.id !== id)),
 }
 
+// ── Body Photos ──────────────────────────────────────────
+export const bodyPhotosStore = {
+  getAll: () => getStore<BodyPhoto>('body_photos').sort((a, b) => b.date.localeCompare(a.date)),
+  getRecent: (n: number) => getStore<BodyPhoto>('body_photos').sort((a, b) => b.date.localeCompare(a.date)).slice(0, n),
+  save: (photo: BodyPhoto) => {
+    const all = getStore<BodyPhoto>('body_photos')
+    all.unshift(photo)
+    if (all.length > 60) all.length = 60
+    setStore('body_photos', all)
+  },
+  delete: (id: string) => setStore('body_photos', getStore<BodyPhoto>('body_photos').filter(p => p.id !== id)),
+}
+
 // ── Net Worth ────────────────────────────────────────────
 export const netWorthStore = {
   getAll: () => getStore<NetWorthEntry>('net_worth').sort((a, b) => a.date.localeCompare(b.date)),
@@ -992,6 +1005,9 @@ export function getAllDataForAI() {
   const alignment = getAlignmentScore()
   const todayVital = vitals.find(v => v.date === today())
   const feelingCorrelations = getFeelingCorrelations()
+  const bodyHistory = bodyStore.getAll().slice(0, 30)
+  const measurementsHistory = bodyMeasurementsStore.getRecent(10)
+  const recentPhotos = bodyPhotosStore.getRecent(5).map(p => ({ id: p.id, date: p.date, analysisSnippet: p.analysis?.slice(0, 200) }))
   return {
     profile,
     isNewUser: vitals.length === 0 && workouts.length === 0 && finance.length === 0,
@@ -999,6 +1015,9 @@ export function getAllDataForAI() {
     workouts,
     nutrition: nutritionStore.getLast(),
     body: bodyStore.getLast(),
+    bodyHistory,
+    measurementsHistory,
+    recentBodyPhotos: recentPhotos,
     balance: financeStore.getBalance(),
     savingsRate: financeStore.getSavingsRate(),
     goals: goalsStore.getAll(),

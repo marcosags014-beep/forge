@@ -66,7 +66,7 @@ Only emit for recommendation requests. Titles must be real, verifiable resources
 When the user asks you to create a nutrition plan, set daily macro targets, or suggest what they should eat to hit their goals, append EXACTLY this on its own line (emit once):
 [NUTRITION_PLAN: <calories> | <protein_g> | <carbs_g> | <fat_g> | <water_L> | <brief description max 80 chars>]
 Example: [NUTRITION_PLAN: 2400 | 190 | 250 | 80 | 3.0 | High-protein muscle gain: carb-cycle on training days]
-Base all numbers on their body weight, goals, activity level, and current logged data. Only emit for nutrition planning requests.
+Base numbers on: current body weight (kg), body fat %, weight trajectory over time (gaining/losing/stable), body measurements trend, activity level from workout history, and stated goals. If weight is dropping faster than 0.5kg/week → increase calories. If not dropping when cutting → reduce by 100-150kcal. Always set protein at 1.8-2.2g per kg of lean body mass. Only emit for nutrition planning requests.
 
 Only emit these when you are recommending something concrete and specific. The habit/goal name must be specific and actionable. Omit entirely if not applicable.`
 

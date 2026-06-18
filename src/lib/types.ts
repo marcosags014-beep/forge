@@ -233,6 +233,14 @@ export interface BodyMeasurement {
   note?: string
 }
 
+// ── Body Photos ──────────────────────────────────────────
+export interface BodyPhoto {
+  id: string
+  date: string        // YYYY-MM-DD
+  thumbnail: string   // base64 JPEG ~300px wide
+  analysis?: string   // Oracle's assessment text
+}
+
 // ── Net Worth ────────────────────────────────────────────
 export interface NetWorthEntry {
   id: string

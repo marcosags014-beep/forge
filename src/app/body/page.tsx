@@ -5,10 +5,10 @@ import { format } from 'date-fns'
 import { Plus, Trash2, Save, Dumbbell, Apple, Scale, X, Camera, Sparkles, Upload, RefreshCw, Ruler } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
-import { workoutsStore, nutritionStore, bodyStore, bodyMeasurementsStore, generateId, today, getAllDataForAI } from '@/lib/store'
+import { workoutsStore, nutritionStore, bodyStore, bodyMeasurementsStore, bodyPhotosStore, generateId, today, getAllDataForAI } from '@/lib/store'
 import { useRef } from 'react'
 
-import type { WorkoutEntry, NutritionEntry, BodyMetric, Exercise, BodyMeasurement } from '@/lib/types'
+import type { WorkoutEntry, NutritionEntry, BodyMetric, Exercise, BodyMeasurement, BodyPhoto } from '@/lib/types'
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number; name: string; color: string }[]; label?: string }) => {
   if (!active || !payload?.length) return null
@@ -631,27 +631,27 @@ function BodyMeasurements() {
 function BodyScan() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<string | null>(null)
-  const [mediaType, setMediaType] = useState<string>('image/jpeg')
+  const [currentBase64, setCurrentBase64] = useState<string | null>(null)
   const [analysis, setAnalysis] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [photos, setPhotos] = useState<BodyPhoto[]>([])
+  const [selected, setSelected] = useState<BodyPhoto | null>(null)
 
-  function resizeAndEncode(file: File): Promise<{ base64: string; mimeType: string }> {
+  useEffect(() => { setPhotos(bodyPhotosStore.getAll()) }, [])
+
+  function resizeAndEncode(file: File, maxPx: number, quality = 0.82): Promise<string> {
     return new Promise((resolve, reject) => {
       const img = new Image()
       const url = URL.createObjectURL(file)
       img.onload = () => {
         URL.revokeObjectURL(url)
-        const MAX = 1024
-        const ratio = Math.min(MAX / img.width, MAX / img.height, 1)
+        const ratio = Math.min(maxPx / img.width, maxPx / img.height, 1)
         const canvas = document.createElement('canvas')
         canvas.width = Math.round(img.width * ratio)
         canvas.height = Math.round(img.height * ratio)
-        const ctx = canvas.getContext('2d')!
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
-        const base64 = dataUrl.split(',')[1]
-        resolve({ base64, mimeType: 'image/jpeg' })
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1])
       }
       img.onerror = reject
       img.src = url
@@ -663,39 +663,54 @@ function BodyScan() {
     if (!file) return
     setAnalysis('')
     setError('')
-    const { base64, mimeType } = await resizeAndEncode(file)
-    setPreview(`data:${mimeType};base64,${base64}`)
-    setMediaType(mimeType)
-    await analyse(base64, mimeType)
+    const full = await resizeAndEncode(file, 1024, 0.82)
+    const thumb = await resizeAndEncode(file, 320, 0.75)
+    setPreview(`data:image/jpeg;base64,${full}`)
+    setCurrentBase64(thumb)
+    await analyse(full, thumb)
   }
 
-  async function analyse(base64: string, mimeType: string) {
+  async function analyse(base64: string, thumb: string) {
     setLoading(true)
     setAnalysis('')
     try {
       const userData = getAllDataForAI()
+      const bodyHist = (userData.bodyHistory as Array<{date:string;weight:number;bodyFat?:number}>)
+        ?.slice(0, 5).map(b => `${b.date}: ${b.weight}kg${b.bodyFat ? ` / ${b.bodyFat}% fat` : ''}`).join(', ') || 'no history'
       const res = await fetch('/api/oracle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: 'vision',
           imageData: base64,
-          mediaType: mimeType,
-          agentPrompt: `You are a professional physique coach and sports scientist analysing a body photo. Be honest and constructive. Structure your response with these sections (no markdown headers, use plain text):
+          mediaType: 'image/jpeg',
+          agentPrompt: `You are a professional physique coach analysing a body progress photo. Structure with plain text sections (no markdown):
 
-POSTURE & STRUCTURE — spine alignment, shoulder symmetry, hip balance, any imbalances you observe.
-MUSCLE DEVELOPMENT — dominant muscle groups, visible weak points, estimated development stage (beginner/intermediate/advanced).
+POSTURE & STRUCTURE — spine, shoulder symmetry, hip balance, visible imbalances.
+MUSCLE DEVELOPMENT — dominant groups, weak points, development stage.
 BODY COMPOSITION — estimated body fat range, muscle-to-fat ratio, frame type.
-TRAINING RECOMMENDATIONS — 3 specific training focuses based on what you see. Be precise.
-PRIORITY — the single biggest physical improvement lever for this person.
+CHANGE vs HISTORY — if weight/fat history shows a trend, comment on visible progress or regression.
+TRAINING FOCUS — 3 specific priorities based on what you see.
+PRIORITY — single highest-leverage improvement right now.
 
-Be direct and specific. No generic advice. No disclaimers about not being a doctor unless truly necessary.`,
-          message: `Analyse my body photo. My training data for context:\n\nWorkout history: ${userData.workouts?.length ?? 0} sessions logged.\nCurrent goals: ${userData.goals?.map((g: {title: string}) => g.title).join(', ') || 'none set'}.`,
+Be direct. No generic disclaimers.`,
+          message: `Analyse my body photo.\nWeight history: ${bodyHist}.\nGoals: ${userData.goals?.map((g: {title:string}) => g.title).join(', ') || 'none set'}.`,
           userData,
         }),
       })
       const data = await res.json()
-      setAnalysis(data.content ?? '')
+      const text = data.content ?? ''
+      setAnalysis(text)
+
+      // Save to memory
+      const photo: BodyPhoto = {
+        id: generateId(),
+        date: today(),
+        thumbnail: thumb,
+        analysis: text,
+      }
+      bodyPhotosStore.save(photo)
+      setPhotos(bodyPhotosStore.getAll())
     } catch {
       setError('Could not reach Oracle. Try again.')
     } finally {
@@ -705,28 +720,32 @@ Be direct and specific. No generic advice. No disclaimers about not being a doct
 
   function reset() {
     setPreview(null)
+    setCurrentBase64(null)
     setAnalysis('')
     setError('')
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  function deletePhoto(id: string) {
+    bodyPhotosStore.delete(id)
+    setPhotos(bodyPhotosStore.getAll())
+    if (selected?.id === id) setSelected(null)
+  }
+
   return (
     <div className="space-y-4">
+      {/* New scan */}
       <div className="forge-card">
         <div className="flex items-center justify-between mb-3">
           <span className="forge-label flex items-center gap-2">
             <Camera className="w-3.5 h-3.5" />AI Body Analysis
           </span>
           {preview && (
-            <button onClick={reset} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <button onClick={reset} className="text-muted-foreground hover:text-foreground transition-colors">
               <X className="w-4 h-4" />
             </button>
           )}
         </div>
-
-        <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-          Upload a front or side photo — Oracle analyses posture, muscle development, body composition, and gives you specific training recommendations. Photos are <span className="text-foreground font-medium">never stored</span>.
-        </p>
 
         {!preview ? (
           <label className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all">
@@ -734,23 +753,16 @@ Be direct and specific. No generic advice. No disclaimers about not being a doct
               <Upload className="w-5 h-5 text-primary" />
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium mb-0.5">Choose photo or take one</p>
-              <p className="text-xs text-muted-foreground">Front or side, good lighting, minimal clothing</p>
+              <p className="text-sm font-medium mb-0.5">Take photo or upload</p>
+              <p className="text-xs text-muted-foreground">Front or side · saved to your progress</p>
             </div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="user"
-              onChange={handleFile}
-              className="hidden"
-            />
+            <input ref={fileRef} type="file" accept="image/*" capture="user" onChange={handleFile} className="hidden" />
           </label>
         ) : (
           <div className="space-y-4">
             <div className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={preview} alt="Body scan preview" className="w-full max-h-80 object-contain rounded-xl bg-secondary" />
+              <img src={preview} alt="Body scan" className="w-full max-h-80 object-contain rounded-xl bg-secondary" />
               {loading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-background/70 rounded-xl">
                   <div className="flex flex-col items-center gap-2">
@@ -760,30 +772,59 @@ Be direct and specific. No generic advice. No disclaimers about not being a doct
                 </div>
               )}
             </div>
-
-            {error && (
-              <p className="text-sm text-red-400">{error}</p>
-            )}
-
+            {error && <p className="text-sm text-red-400">{error}</p>}
             {analysis && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-semibold text-primary">Oracle&apos;s Assessment</span>
+                  <span className="text-xs font-semibold text-primary">Oracle&apos;s Assessment · saved to memory</span>
                 </div>
                 <div className="text-sm leading-relaxed whitespace-pre-line text-foreground">{analysis}</div>
-                <button
-                  onClick={() => fileRef.current?.click()}
+                <button onClick={() => { reset(); fileRef.current?.click() }}
                   className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-2">
-                  <RefreshCw className="w-3 h-3" />
-                  Analyse a different photo
+                  <RefreshCw className="w-3 h-3" />New photo
                 </button>
-                <input ref={fileRef} type="file" accept="image/*" capture="user" onChange={handleFile} className="hidden" />
               </div>
             )}
           </div>
         )}
       </div>
+
+      {/* Progress gallery */}
+      {photos.length > 0 && (
+        <div className="forge-card space-y-3">
+          <span className="forge-label flex items-center gap-2"><Camera className="w-3.5 h-3.5" />Progress Photos ({photos.length})</span>
+          <div className="grid grid-cols-3 gap-2">
+            {photos.map(p => (
+              <button key={p.id} onClick={() => setSelected(s => s?.id === p.id ? null : p)}
+                className={`relative rounded-xl overflow-hidden border-2 transition-all ${selected?.id === p.id ? 'border-primary' : 'border-transparent hover:border-primary/30'}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`data:image/jpeg;base64,${p.thumbnail}`} alt={p.date}
+                  className="w-full aspect-[3/4] object-cover" />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 px-1.5 py-1">
+                  <p className="text-[9px] text-white/90 font-medium">{format(new Date(p.date), 'MMM d')}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {selected && (
+            <div className="space-y-2 pt-2 border-t border-border">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-primary">{format(new Date(selected.date), 'MMMM d, yyyy')}</span>
+                <button onClick={() => deletePhoto(selected.id)} className="text-xs text-red-400/60 hover:text-red-400 transition-colors flex items-center gap-1">
+                  <Trash2 className="w-3 h-3" />Delete
+                </button>
+              </div>
+              {selected.analysis && (
+                <div className="text-xs leading-relaxed text-muted-foreground whitespace-pre-line max-h-48 overflow-y-auto">
+                  {selected.analysis}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

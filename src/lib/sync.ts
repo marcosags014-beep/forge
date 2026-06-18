@@ -8,7 +8,7 @@ export const SYNC_KEYS = [
   'journal', 'learning', 'supplements',
   'timeline', 'chat',
   'achievements', 'lifescore_history', 'alignment_history',
-  'profile',
+  'profile', 'body_photos',
 ]
 
 const PUSH_TS_KEY = 'forge_last_push_ts'
