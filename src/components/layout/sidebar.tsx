@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Flame, Home, Heart, Dumbbell, TrendingUp, Target, Sparkles, Lightbulb, BarChart3, BookOpen, Settings, X, Clock } from 'lucide-react'
+import { Flame, Home, Heart, Dumbbell, TrendingUp, Target, Sparkles, Lightbulb, BarChart3, BookOpen, Settings, X, Clock, GraduationCap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEffect, useState } from 'react'
 import { calculateLifeScores } from '@/lib/store'
+import { SyncDot } from '@/components/SyncProvider'
 
 const nav = [
   { href: '/',         label: 'Command',   icon: Home,       desc: 'Life Score & overview' },
@@ -16,6 +17,7 @@ const nav = [
   { href: '/mind',     label: 'Mind',      icon: Target,     desc: 'Goals, habits, tasks' },
   { href: '/journal',   label: 'Journal',   icon: BookOpen,   desc: 'Daily reflections' },
   { href: '/timeline',  label: 'Timeline',  icon: Clock,      desc: 'Hourly activity log' },
+  { href: '/learn',     label: 'Learn',     icon: GraduationCap, desc: 'Books, courses, growth' },
   { href: '/review',    label: 'Review',    icon: BarChart3,  desc: 'Weekly performance' },
   { href: '/oracle',   label: 'Oracle',    icon: Sparkles,   desc: 'AI life coach' },
 ]
@@ -123,8 +125,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </Link>
         </div>
 
-        <div className="px-5 py-3 border-t border-sidebar-border">
+        <div className="px-5 py-3 border-t border-sidebar-border flex items-center justify-between">
           <p className="text-[9px] text-muted-foreground uppercase tracking-widest">Build the life you deserve</p>
+          <SyncDot />
         </div>
       </aside>
     </>
