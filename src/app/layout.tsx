@@ -48,31 +48,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         <script dangerouslySetInnerHTML={{ __html: `
-// Version check — forces hard reload when a new deploy is detected.
-// Uses /api/version which is never cached by service workers.
 (function(){
   var STORED = 'forge_build_v';
-  fetch('/api/version', {cache:'no-store'})
+  // Strip the cache-bust param added by a previous update cycle
+  if(window.location.search.indexOf('_fv=') !== -1){
+    var clean = window.location.pathname + window.location.hash;
+    history.replaceState(null,'',clean);
+  }
+  fetch('/api/version',{cache:'no-store'})
     .then(function(r){return r.json()})
     .then(function(d){
       var next = d.v;
       var prev = localStorage.getItem(STORED);
+      localStorage.setItem(STORED, next);
       if(prev && prev !== next){
-        localStorage.setItem(STORED, next);
-        window.location.reload(true);
-      } else {
-        localStorage.setItem(STORED, next);
+        // Use replace() instead of reload() — iOS PWA ignores reload() cache bypass
+        window.location.replace(window.location.pathname+'?_fv='+encodeURIComponent(next)+(window.location.hash||''));
       }
     }).catch(function(){});
-  // Cleanup any old service workers
+  // Unregister all service workers — they caused stale caching
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.addEventListener('message',function(e){
-      if(e.data==='RELOAD') window.location.reload(true);
-    });
-    navigator.serviceWorker.register('/sw.js').catch(function(){});
-    // Unregister all SWs after cleanup completes
     navigator.serviceWorker.getRegistrations().then(function(regs){
-      regs.forEach(function(r){ r.unregister(); });
+      regs.forEach(function(r){r.unregister();});
     });
   }
 })();
